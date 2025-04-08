@@ -1,0 +1,1 @@
+Hi ha multiples maneres de realitzar traduccions. Si fem servir el model de Whisper, aquest ja porta una traducció incorporada.

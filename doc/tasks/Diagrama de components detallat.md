@@ -1,0 +1,2 @@
+
+![[Diagrama de components.svg]]

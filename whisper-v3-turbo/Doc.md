@@ -1,0 +1,1 @@
+VRAM Usage (3gb): https://huggingface.co/openai/whisper-large-v3-turbo/discussions/3
