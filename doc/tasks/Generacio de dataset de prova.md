@@ -22,7 +22,7 @@ ls -1 | sed 's/.*(\([0-9]\{4\}\)).*/\1 &/' | sort -n | sed 's/^[0-9]\{4\} //' | 
 Per generar els fitxers d'àudio, farem servir un fitxer de text amb la llista de pel·lícules, i executarem una comanda de FFmpeg per generar els 5 minuts d'àudio en format MP3. Agafarem del minut 20 al 25, així ja hauria començat la pel·lícula i podrem tenir diàlegs.
 ```powershell
 %% Llegim el fitxer de pelicules. I per cada linia (pel·lícula) executem la comanda de ffmpeg amb el contingut de la linia (el nom del fitxer) %%
-Get-Content "peliculas.txt" | ForEach-Object {ffmpeg -i $_ -ss 00:20:00 -t 00:25:00 -vn -acodec mp3 -ar 44100 -ac 2 ("audio_dataset\" + [System.IO.Path]::GetFileNameWithoutExtension($_) + ".mp3")}
+Get-Content "peliculas.txt" | ForEach-Object {ffmpeg -i $_ -ss 00:20:00 -t 00:05:00 -vn -acodec mp3 -ar 44100 -ac 2 ("audio_dataset\" + [System.IO.Path]::GetFileNameWithoutExtension($_) + ".mp3")}
 ```
 
 # Resultat
@@ -38,4 +38,3 @@ La_vida_secreta_de_los_orangutanes_(2024)_[tmdbid-1239121]_Cast.mp3
 Rebel_Moon_(Parte_dos)_La_guerrera_que_deja_marcas_(2024)_[tmdbid-934632]_Cast.mp3
 Transformers_One_(2024)_[tmdbid-698687]_Cast.mp3
 ```
-

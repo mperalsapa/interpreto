@@ -15,6 +15,7 @@ kanban-plugin: board
 ## DOING
 
 - [ ] [[Cercar maneres de traduïr]]
+- [ ] [[Provar faster-whisper]]
 
 
 ## DONE
