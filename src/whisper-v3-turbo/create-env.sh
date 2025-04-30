@@ -18,5 +18,6 @@ conda activate $PYTHON_ENV_NAME
 echo "--- Installing dependences from https://huggingface.co/openai/whisper-large-v3-turbo ---"
 pip install --upgrade pip
 pip install --upgrade transformers datasets[audio] accelerate
+# pip install torch transformers pydub webrtcvad
 
 echo "Run 'conda activate $PYTHON_ENV_NAME' to activate the environment"

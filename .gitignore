@@ -1,6 +1,9 @@
 *.mp4
 *.mp3
 *.m4a
+*.wav
+node_modules
+__pycache__
 .stfolder
 output
 references

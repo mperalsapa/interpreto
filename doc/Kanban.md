@@ -10,12 +10,13 @@ kanban-plugin: board
 - [ ] Detecció de llenguatge
 - [ ] Traducció
 - [ ] Conversió de text amb marques de temps a subtítol
+- [ ] [[Crear infografia tipus treball de batxillerat]]
 
 
 ## DOING
 
 - [ ] [[Cercar maneres de traduïr]]
-- [ ] [[Provar faster-whisper]]
+- [ ] [[Investigar arquitectura de serveis]]
 
 
 ## DONE
@@ -25,6 +26,7 @@ kanban-plugin: board
 - [ ] [[Probar diferents models]]
 - [ ] [[Investigar tipus de fitxers de subtitols]]
 - [ ] [[Generacio de dataset de prova]]
+- [ ] [[Provar faster-whisper]]
 
 
 

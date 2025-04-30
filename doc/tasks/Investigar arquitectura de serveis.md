@@ -1,0 +1,5 @@
+L'arquitectura dels serveis hauria de ser modular, per donar la possibilitat, no només d'escalabilitat, sinó també d'estabilitat i facilitat de desenvolupament.
+
+L'usuari inicialment connectarà a un servidor web. Aquest servidor web tindrà un frontend i el backend. El backend tindrà un endpoint el qual disposa de resposta amb SSE (Server Sent Event), el que permet retornar una resposta per trossos, en comptes de donar una única resposta final, és a dir, una resposta via streaming.
+
+Des del servidor web, ens podem comunicar amb altres contenidors. L'ideal seria tenir un servidor de fitxers per emmagatzemar els àudios/vídeos. D'aquesta manera, el contenidor de transcripció pot ser escalable i accedir als fitxers. Aquest contenidor de transcripció, també disposarà d'un servidor web, el qual respondrà amb SSE. Amb aquesta arquitectura, l'usuari pot rebre la resposta el més ràpid possible, encara que no sigui completa.

@@ -8,7 +8,7 @@ then
 fi
 
 # script setup
-PYTHON_ENV_NAME="proj-faster-whisper-0.10"
+PYTHON_ENV_NAME="proj-whisper-v3-turbo-vad"
 eval "$(conda shell.bash hook)"
 conda activate base
 
@@ -30,10 +30,7 @@ fi
 
 echo "--- Installing dependences from https://github.com/SYSTRAN/faster-whisper ---"
 pip install --upgrade pip
-pip install faster-whisper==0.10
 
-# cuda 11
-pip install nvidia-cublas-cu11 nvidia-cudnn-cu11==8.*
-pip install --force-reinstall ctranslate2==3.24.0
+pip install openai-whisper webrtcvad pydub
 
 echo "Run 'conda activate $PYTHON_ENV_NAME' to activate the environment"

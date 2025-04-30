@@ -39,5 +39,6 @@ pip install nvidia-cublas-cu12 nvidia-cudnn-cu12==9.*
 # pip install --force-reinstall ctranslate2==3.24.0
 
 pip install faster-whisper
+pip install silero-vad
 
 echo "Run 'conda activate $PYTHON_ENV_NAME' to activate the environment"

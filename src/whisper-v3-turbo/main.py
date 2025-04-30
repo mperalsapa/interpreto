@@ -3,6 +3,7 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 # from datasets import load_dataset
 import sys
 from datetime import timedelta as td
+import os
 
 SRT = False
 FileName = ""
@@ -43,7 +44,8 @@ pipe = pipeline(
     feature_extractor=processor.feature_extractor,
     torch_dtype=torch_dtype,
     device=device,
-    chunk_length_s=15,
+    chunk_length_s=30,
+    generate_kwargs={"language": "en"}
 )
 
 # dataset = load_dataset("distil-whisper/librispeech_long", "clean", split="validation")
@@ -85,7 +87,10 @@ if SRT:
         
         elapsedTime = endTime
 
-        filestring += f"{ i }\n{ getTimestamp(startTime) } --> { getTimestamp(endTime) }\n{ text }\n\n"
+        filestring += f"{ i }\n{ getTimestamp(startTime) } --> { getTimestamp(endTime) }\n{ text.strip() }\n\n"
 
-with open(f"output/{FileName.split("/")[-1]}.{'srt' if SRT else 'txt'}", "w") as file:
+os.makedirs("output", exist_ok=True)
+with open("output/{}.{}".format(os.path.splitext(os.path.basename(FileName))[0], ('srt' if SRT else 'txt')), "w") as file:
     file.write(filestring)
+# with open(f"output/{FileName.split("/")[-1]}.{'srt' if SRT else 'txt'}", "w") as file:
+#     file.write(filestring)
