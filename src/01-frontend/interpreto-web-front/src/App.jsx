@@ -14,7 +14,7 @@ function App() {
     setUploading(true);
     setResponse("");
 
-    const res = await fetch("http://localhost:8000/upload", {
+    const res = await fetch("http://localhost:8080/upload", {
       method: "POST",
       body: formData,
     });
@@ -30,9 +30,8 @@ function App() {
 
       buffer += decoder.decode(value, { stream: true });
 
-      // Procesa líneas completas SSE
       const lines = buffer.split("\n\n");
-      buffer = lines.pop(); // Guarda lo incompleto
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (line.startsWith("data:")) {
@@ -47,10 +46,10 @@ function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Sube un archivo MP3</h2>
+      <h2>Sube un archivo de audio o video</h2>
       <input
         type="file"
-        accept=".mp3"
+        accept="audio/*,video/*"
         onChange={(e) => setFile(e.target.files[0])}
       />
       <button onClick={handleUpload} disabled={!file || uploading}>
