@@ -11,16 +11,20 @@ kanban-plugin: board
 - [ ] Traducció
 - [ ] Conversió de text amb marques de temps a subtítol
 - [ ] [[Crear infografia tipus treball de batxillerat]]
+- [ ] [[Cercar maneres de traduïr]]
 
 
 ## DOING
 
-- [ ] [[Cercar maneres de traduïr]]
-- [ ] [[Investigar arquitectura de serveis]]
+- [ ] [[Pujat de fitxer multimedia]]
+- [ ] [[Creacio de sistema de cua]]
+- [ ] [[Processat de fitxers en cua]]
+- [ ] Visualització dels fitxers processats
 
 
 ## DONE
 
+- [ ] [[Investigar arquitectura de serveis]]
 - [ ] [[Buscar models que fer servir]]
 - [ ] [[Diagrama de components detallat]]
 - [ ] [[Probar diferents models]]

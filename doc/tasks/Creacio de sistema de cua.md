@@ -1,0 +1,1 @@
+La cua porta el control dels fitxers, d'aquesta manera l'usuari pot saber en quina posició es trova, o si ja s'ha processat.
