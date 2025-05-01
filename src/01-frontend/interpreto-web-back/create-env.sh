@@ -32,5 +32,7 @@ echo "--- Installing dependences from https://github.com/SYSTRAN/faster-whisper 
 pip install --upgrade pip
 
 pip install "fastapi[standard]"
+pip install minio
+pip install pymongo
 
 echo "Run 'conda activate $PYTHON_ENV_NAME' to activate the environment"
