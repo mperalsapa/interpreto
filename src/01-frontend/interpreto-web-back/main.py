@@ -23,12 +23,12 @@ mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MON
 try:
     mongo_client = MongoClient(mongo_uri)
     mongo_db = mongo_client[MONGO_DB]
-    files_collection = mongo_db["files"]
+    files_collection = mongo_db["file"]
+    queue_collection = mongo_db["queue"]
     print(f"Conectado a MongoDB en {MONGO_HOST}:{MONGO_PORT}")
 except Exception as e:
     print(f"Error conectando a MongoDB: {e}")
-    mongo_db = None
-    files_collection = None
+    exit(1)
 
 
 # MinIO Config
@@ -90,21 +90,28 @@ async def upload_file(file: UploadFile = File(...)):
         )
 
         # Guardar metadata en MongoDB
-        if files_collection is not None:
-            files_collection.insert_one({
-                "filename": file.filename,
-                "object_name": object_name,
-                "object_etag": object_result.etag,
-                "hash": hash_value,
-                "uploaded_at": datetime.utcnow()
-            })
+        inserted_file = files_collection.insert_one({
+            "filename": file.filename,
+            "object_name": object_name,
+            "object_etag": object_result.etag,
+            "hash": hash_value,
+            "uploaded_at": datetime.utcnow()
+        })
+
+        # añadir a la cola
+        queue_collection.insert_one({
+            "file_id": str(inserted_file.inserted_id),
+            "status": "waiting",
+            "object_name": object_name,
+            "object_etag": object_result.etag,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        })
 
         async def event_stream():
             yield f"data: Archivo recibido: {file.filename}\n\n"
             yield "data: Subiendo archivo a MinIO...\n\n"
             yield f"data: File hash: {hash_value}\n\n"
-            # yield f"data: Archivo guardado como: {object_name}\n\n"
-            # yield f"data: URL del archivo: http://localhost:9000/{BUCKET_NAME}/{object_name}\n\n"
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
