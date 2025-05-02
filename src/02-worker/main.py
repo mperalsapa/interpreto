@@ -3,6 +3,8 @@ import torch
 import torchaudio
 import time
 import shutil
+import redis
+import json
 from faster_whisper import WhisperModel
 from datetime import timedelta as td
 from datetime import datetime
@@ -37,10 +39,13 @@ minio_secret_key = "minioadmin"
 minio_bucket = "media-files"
 
 # ========= CLIENTES =========
+print("Connecting to mongo...")
 mongo_client = MongoClient(mongo_uri)
+print("Obtaining mongo collections...")
 queue_collection = mongo_client[MONGO_DB][MONGO_QUEUE_COLLECTION]
 file_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
 
+print("Connecting to minio...")
 minio_client = Minio(
     "localhost:9000",
     access_key="minioadmin",
@@ -48,18 +53,25 @@ minio_client = Minio(
     secure=False
 )
 
+print("Connecting to redis...")
+r = redis.Redis(host='localhost', port=6379, db=0)
+
 # DEBUG TEST TEMP
 # Load mongo queue and list it all
 # print("[DEBUG] Jobs: ", queue_collection.count_documents({}))
 # exit()
 
 # ========= MODELOS =========
+print("Loading models...")
+
+print("Loading whisper model...")
 model = WhisperModel(
     model_size,
     device="cuda" if use_cuda else "cpu",
     compute_type=compute_type
 )
 
+print("Loading silero-vad model...")
 vad = torch.hub.load(
     repo_or_dir='snakers4/silero-vad',
     model='silero_vad',
@@ -179,13 +191,18 @@ def transcribe_segments(segments):
         segs, info = model.transcribe(seg_path, beam_size=5)
         full_text = "".join([s.text for s in segs])
         print(f"[{get_timestamp(start)} --> {get_timestamp(end)}] ({info.language}) {full_text.strip()}")
-        results.append({
+        result = {
             "start": start,
             "end": end,
             "language": info.language,
             "text": full_text.strip()
-        })
+        }
+        results.append(result)
         os.remove(seg_path)
+
+        # send segment to redis
+        r.publish("temp", f"data: {result}")
+    r.publish("temp", "closed")
     return results
 
 if __name__ == "__main__":
@@ -219,8 +236,6 @@ if __name__ == "__main__":
         shutil.rmtree(temp_dir, ignore_errors=True)
         print("[DEBUG] Job: ", job)
         print("[DEBUG] Results: ", results)
-
-        exit()
 
 
 

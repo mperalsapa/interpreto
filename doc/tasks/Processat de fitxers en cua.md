@@ -1,0 +1,1 @@
+El servei que generarà les transcripcions, mirarà la cua i processarà els fitxers que siguin pendents. En acabar, els marcarà com a processats, i emmagatzemara el resultat en la base de dades, i també el retornarà al davant que li ha demanat. Per retornar al front, es farà servir un servidor de missatges, d'aquesta manera el servidor web rebrà la informació el més aviat possible.

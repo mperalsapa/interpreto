@@ -17,8 +17,8 @@ db.createUser({
 db = db.getSiblingDB("media_service");
 
 // create collections
-db.createCollection("files");
-db.createCollection("queues");
+db.createCollection("file");
+db.createCollection("queue");
 // db.createCollection("history");
 
 // unique index to avoid duplicates

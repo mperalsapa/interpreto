@@ -7,6 +7,9 @@ from minio import Minio
 import os
 from datetime import datetime
 import io
+import asyncio
+import redis.asyncio as redis  # Asegúrate de usar la versión asyncio
+from datetime import datetime, timedelta
 
 app = FastAPI()
 
@@ -32,12 +35,17 @@ except Exception as e:
 
 
 # MinIO Config
+print("Connecting to minio...")
 minio_client = Minio(
     "localhost:9000",
     access_key="minioadmin",
     secret_key="minioadmin",
     secure=False
 )
+
+# Redis config
+print("Connecting to redis...")
+r = redis.Redis(host="localhost", port=6379)
 
 # Asegurarse de que el bucket existe
 BUCKET_NAME = "media-files"
@@ -69,10 +77,10 @@ async def upload_file(file: UploadFile = File(...)):
         hash_value = hashlib.sha256(contents).hexdigest()
 
         # # Verificar si ya existe en MongoDB por hash
-        if files_collection is not None and files_collection.find_one({"hash": hash_value}):
-            async def duplicate_stream():
-                yield f"data: El archivo ya existe, no se sube de nuevo.\n\n"
-            return StreamingResponse(duplicate_stream(), media_type="text/event-stream")
+        # if files_collection is not None and files_collection.find_one({"hash": hash_value}):
+        #     async def duplicate_stream():
+        #         yield f"data: El archivo ya existe, no se sube de nuevo.\n\n"
+        #     return StreamingResponse(duplicate_stream(), media_type="text/event-stream")
 
         # Si no existe, generar nombre y subir
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -109,9 +117,28 @@ async def upload_file(file: UploadFile = File(...)):
         })
 
         async def event_stream():
-            yield f"data: Archivo recibido: {file.filename}\n\n"
-            yield "data: Subiendo archivo a MinIO...\n\n"
-            yield f"data: File hash: {hash_value}\n\n"
+            pubsub = r.pubsub()
+            await pubsub.subscribe("temp")
+            print("Subscribed to redis")
+
+            timeout_seconds = 30
+            deadline = datetime.utcnow() + timedelta(seconds=timeout_seconds)
+
+            try:
+                while datetime.utcnow() < deadline:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True)
+                    if message:
+                        data = message['data'].decode()
+                        print(f"Received message from redis: {data}")
+                        yield f"data: {data}\n\n"
+                        if data.strip().lower() == "cerrar":
+                            break
+                        deadline = datetime.utcnow() + timedelta(seconds=timeout_seconds)
+                    await asyncio.sleep(1)  # Evita CPU 100%
+            finally:
+                print("Unsubscribing from redis")
+                await pubsub.unsubscribe("temp")
+                await pubsub.close()
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 

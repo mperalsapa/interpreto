@@ -34,5 +34,6 @@ pip install --upgrade pip
 pip install "fastapi[standard]"
 pip install minio
 pip install pymongo
+pip install redis
 
 echo "Run 'conda activate $PYTHON_ENV_NAME' to activate the environment"

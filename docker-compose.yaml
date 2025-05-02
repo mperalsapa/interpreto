@@ -9,6 +9,13 @@ services:
     volumes:
       - ./src/docker/mongo-init:/docker-entrypoint-initdb.d  # init-mongo.js
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_pubsub
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
   minio:
     image: minio/minio
     ports:
