@@ -17,8 +17,6 @@ kanban-plugin: board
 ## DOING
 
 - [ ] [[Pujat de fitxer multimedia]]
-- [ ] [[Creacio de sistema de cua]]
-- [ ] [[Processat de fitxers en cua]]
 - [ ] Visualització dels fitxers processats
 
 
@@ -30,7 +28,9 @@ kanban-plugin: board
 - [ ] [[Probar diferents models]]
 - [ ] [[Investigar tipus de fitxers de subtitols]]
 - [ ] [[Generacio de dataset de prova]]
+- [ ] [[Processat de fitxers en cua]]
 - [ ] [[Provar faster-whisper]]
+- [ ] [[Creacio de sistema de cua]]
 
 
 
