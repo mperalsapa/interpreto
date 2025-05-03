@@ -1,24 +1,25 @@
+import json
 import os
+import redis
+import shutil
+import time
 import torch
 import torchaudio
-import time
-import shutil
-import redis
-import json
-from faster_whisper import WhisperModel
+from bson import ObjectId
 from datetime import timedelta as td
 from datetime import datetime
-from pydub import AudioSegment
-from tempfile import mkdtemp
-from pymongo import MongoClient
+from faster_whisper import WhisperModel
 from minio import Minio
-from bson import ObjectId
+from pydub import AudioSegment
+from pymongo import MongoClient
+from tempfile import mkdtemp
 
 # ========= CONFIG =========
-model_size = "turbo"
 use_cuda = torch.cuda.is_available()
+
+# Whisper
+model_size = "turbo"
 compute_type = "float32"
-min_speech_duration = 0.3  # segundos
 
 # Mongo
 # MongoDB Config
@@ -32,18 +33,38 @@ MONGO_FILE_COLLECTION = os.environ.get("MONGO_FILE_COLLECTION", "file")
 
 mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
 
-# Minio
-minio_endpoint = "localhost:9000"
-minio_access_key = "minioadmin"
-minio_secret_key = "minioadmin"
-minio_bucket = "media-files"
+try:
+    mongo_client = MongoClient(mongo_uri)
+    mongo_db = mongo_client[MONGO_DB]
+    files_collection = mongo_db["file"]
+    queue_collection = mongo_db["queue"]
+    print(f"Succesfully connected to MongoDB: {MONGO_HOST}:{MONGO_PORT}")
+    queue_collection = mongo_client[MONGO_DB][MONGO_QUEUE_COLLECTION]
+    file_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
+    print(f"Succesfully obtained collections: {MONGO_QUEUE_COLLECTION} and {MONGO_FILE_COLLECTION}")
+except Exception as e:
+    print(f"Error connecting to MongoDB: {e}")
+    exit(1)
 
-# ========= CLIENTES =========
-print("Connecting to mongo...")
-mongo_client = MongoClient(mongo_uri)
-print("Obtaining mongo collections...")
-queue_collection = mongo_client[MONGO_DB][MONGO_QUEUE_COLLECTION]
-file_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
+# MinIO Config
+MINIO_HOST = os.environ.get("MINIO_HOST", "localhost")
+MINIO_PORT = int(os.environ.get("MINIO_PORT", "9000"))
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
+MINIO_SECURE = os.environ.get("MINIO_SECURE", "False").lower().capitalize() == "True"
+MINIO_BUCKET_NAME = "media-files"
+
+try:
+    minio_client = Minio(
+        f"{MINIO_HOST}:{MINIO_PORT}",
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
+        secure=MINIO_SECURE
+    )
+    print(f"Succesfully connected to MinIO: {MINIO_HOST}:{MINIO_PORT}")
+except Exception as e:
+    print(f"Error connecting to MinIO: {e}")
+    exit(1)
 
 print("Connecting to minio...")
 minio_client = Minio(
@@ -53,15 +74,17 @@ minio_client = Minio(
     secure=False
 )
 
-print("Connecting to redis...")
-r = redis.Redis(host='localhost', port=6379, db=0)
+# Redis config
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+try:
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
+    print(f"Succesfully connected to Redis: {REDIS_HOST}:{REDIS_PORT}")
+except Exception as e:
+    print(f"Error connecting to Redis: {e}")
+    exit(1)
 
-# DEBUG TEST TEMP
-# Load mongo queue and list it all
-# print("[DEBUG] Jobs: ", queue_collection.count_documents({}))
-# exit()
-
-# ========= MODELOS =========
+# ========= MODELS =========
 print("Loading models...")
 
 print("Loading whisper model...")
@@ -85,20 +108,16 @@ vad_model = vad[0].to("cuda" if use_cuda else "cpu")
  VADIterator,
  collect_chunks) = vad[1]
 
-# if use_cuda:
-#     vad_model = vad_model.to("cuda")
-
-# ========= FUNCIONES =========
+# ========= FUNCTIONS =========
 def get_timestamp(seconds):
     t = str(td(seconds=seconds)).split(".")
     return f"{t[0]},{t[1][:3] if len(t) > 1 else '000'}"
 
-def write_wav(segment: AudioSegment, path: str):
+def write_wav(segment, path):
     segment.export(path, format="wav")
 
-# ========= OBTENER TAREA =========
+# ========= GET TASK =========
 def get_task():
-    print("[INFO] Obteniendo tarea de la cola...")
 
     job = queue_collection.find_one_and_update(
         {"status": "waiting"},
@@ -107,7 +126,6 @@ def get_task():
     )
 
     if not job:
-        print("[INFO] No hay tareas en la cola")
         return None
 
     return job
@@ -128,19 +146,25 @@ def store_file_transcription(job, transcription):
         {"$set": {"transcription": transcription}}
     )
 
-# ========= DESCARGAR DE MINIO =========
+def store_file_transcription_segment(job, transcription_segment):
+    file_collection.update_one(
+        {"_id": ObjectId(job["file_id"])},
+        {"$push": {"transcription": transcription_segment}}
+    )
+
+# ========= DOWNLOAD FROM MINIO =========
 def download_file_from_minio(filename, temp_dir):
     mp3_path = os.path.join(temp_dir, filename)
 
     minio_client.fget_object(
-        minio_bucket,
+        MINIO_BUCKET_NAME,
         filename,
         mp3_path
     )
 
     return mp3_path
 
-# ========= PREPARAR AUDIO =========
+# ========= PREPARE AUDIO =========
 def prepare_audio(filename, temp_dir):
     wav_path = os.path.join(temp_dir, "converted.wav")
 
@@ -154,7 +178,7 @@ def prepare_audio(filename, temp_dir):
     
     return {"audio": audio, "waveform": waveform, "sr": sr}
 
-# ========= DETECCIÓN DE VOZ =========
+# ========= VOICE DETECTION =========
 def voice_detection(waveform, sr):
     speech_timestamps = get_speech_timestamps(
         waveform,
@@ -168,15 +192,13 @@ def voice_detection(waveform, sr):
     )
     return speech_timestamps
 
-# ========= EXTRAER Y GUARDAR SEGMENTOS =========
+# ========= EXTRACT AND STORE SEGMENTS =========
 def extract_segments(audio, speech_timestamps, sr):
     segments = []
     for i, ts in enumerate(speech_timestamps):
         start_sec = ts['start'] / sr
         end_sec = ts['end'] / sr
         duration = end_sec - start_sec
-        # if duration < min_speech_duration:
-        #     continue
 
         segment_audio = audio[start_sec * 1000:end_sec * 1000]
         seg_path = os.path.join(temp_dir, f"segment_{i}.wav")
@@ -184,8 +206,8 @@ def extract_segments(audio, speech_timestamps, sr):
         segments.append((seg_path, start_sec, end_sec))
     return segments
 
-# ========= TRANSCRIBIR CON FASTER-WHISPER =========
-def transcribe_segments(segments):
+# ========= TRANSCRIBE USING FASTER-WHISPER =========
+def transcribe_segments(segments, job):
     results = []
     for i, (seg_path, start, end) in enumerate(segments):
         segs, info = model.transcribe(seg_path, beam_size=5)
@@ -201,8 +223,12 @@ def transcribe_segments(segments):
         os.remove(seg_path)
 
         # send segment to redis
-        r.publish("temp", f"data: {result}")
-    r.publish("temp", "closed")
+        r.publish(job["object_etag"], f"data: {result}")
+        # store segment transcription to mongo
+        store_file_transcription_segment(job, result)
+
+    # send closed event
+    r.publish(job["object_etag"], "closed")
     return results
 
 if __name__ == "__main__":
@@ -213,25 +239,25 @@ if __name__ == "__main__":
             time.sleep(1)
             continue
         print(job)
-        print(f"[INFO] Procesando archivo: {job["object_name"]}")
+        print(f"[INFO] Processing job for file: {job["object_name"]} (etag: {job['object_etag']})")
 
         
         temp_dir = mkdtemp()
-        mp3_path = download_file_from_minio(job["object_name"], temp_dir)
-        audio = prepare_audio(mp3_path, temp_dir)
+        file_path = download_file_from_minio(job["object_name"], temp_dir)
+        audio = prepare_audio(file_path, temp_dir)
         speech_timestamps = voice_detection(audio["waveform"], audio["sr"])
         print(f"[INFO] Detectados {len(speech_timestamps)} segmentos con voz")
 
         segments = extract_segments(audio["audio"], speech_timestamps, audio["sr"])
         print(f"[INFO] Extraídos {len(segments)} segmentos de audio")
-        results = transcribe_segments(segments)
+        results = transcribe_segments(segments, job)
         print(f"[INFO] Transcripción completa")
         # Save results to mongo
-        # find existing file by new_name
-        # and set field "transcription" to results
+        # find existing file and set results
+        # in "transcription" field
 
         complete_task(job)
-        store_file_transcription(job, results)
+        # store_file_transcription(job, results)
         print(f"[INFO] Tarea completada")
         shutil.rmtree(temp_dir, ignore_errors=True)
         print("[DEBUG] Job: ", job)
