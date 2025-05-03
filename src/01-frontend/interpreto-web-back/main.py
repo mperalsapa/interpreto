@@ -7,7 +7,8 @@ import redis.asyncio as redis
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from minio import Minio
 from pymongo import MongoClient
 
@@ -191,7 +192,12 @@ async def upload_file(file: UploadFile = File(...)):
     finally:
         await file.close()
 
+# Absolute path to frontend build directory
+frontend_dist_path = os.path.join(os.path.dirname(__file__), "./front-dist")
+frontend_dist_path = os.path.abspath(frontend_dist_path)
 
+# Mount static files
+app.mount("/", StaticFiles(directory=frontend_dist_path, html=True), name="frontend")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)

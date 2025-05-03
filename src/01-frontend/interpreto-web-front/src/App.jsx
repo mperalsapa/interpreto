@@ -1,4 +1,5 @@
 import { useState } from "react";
+const baseUrl = import.meta.env.VITE_BASE_URL
 
 function App() {
   const [file, setFile] = useState(null);
@@ -13,8 +14,7 @@ function App() {
 
     setUploading(true);
     setResponse("");
-
-    const res = await fetch("http://localhost:8080/upload", {
+    const res = await fetch(`${baseUrl}/upload`, {
       method: "POST",
       body: formData,
     });
