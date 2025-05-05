@@ -389,7 +389,7 @@ async def get_media_file(job_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Job not found")
 
     # 2. Obtener el etag del objeto en MinIO
-    file_id = job["file_id"]
+    file_id = job.get("file_id")
     if not file_id:
         raise HTTPException(status_code=404, detail="Object ETag not found in job")
 
@@ -401,34 +401,45 @@ async def get_media_file(job_id: str, request: Request):
     object_name = file_doc["object_name"]
     mime_type = file_doc.get("content_type") or mimetypes.guess_type(object_name)[0] or "application/octet-stream"
 
-    # 4. Obtener archivo desde MinIO
+    # 4. Obtener encabezado Range (si existe)
+    range_header = request.headers.get('Range')
+
+    # 5. Obtener tamaño completo del archivo
+    stat = minio_client.stat_object("media-files", object_name)
+    file_size = stat.size
+
+    if range_header:
+        # 6. Parsear rango
+        range_start, range_end = parse_range_header(range_header, file_size)
+
+        # 7. Obtener solo el fragmento necesario desde MinIO
+        try:
+            partial_file_data = minio_client.get_object(
+                "media-files",
+                object_name,
+                offset=range_start,
+                length=range_end - range_start + 1
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve file range: {str(e)}")
+
+        headers = {
+            "Content-Range": f"bytes {range_start}-{range_end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(range_end - range_start + 1),
+        }
+
+        return StreamingResponse(partial_file_data, media_type=mime_type, headers=headers, status_code=206)
+
+    # 8. Si no se especificó un rango, devolver el archivo completo
     try:
         file_data = minio_client.get_object("media-files", object_name)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve full file: {str(e)}")
 
-    # Obtener el tamaño del archivo desde los encabezados de la respuesta
-    file_size = int(file_data.headers.get('Content-Length', 0))
-
-    # 5. Obtener encabezado Range (si existe)
-    range_header = request.headers.get('Range')
-    if range_header:
-        # Si se solicita un rango, parseamos el encabezado
-        range_start, range_end = parse_range_header(range_header, file_size)
-
-        # Creamos un generador de chunks del archivo
-        chunk_generator = chunked_file(file_data, range_start, range_end)
-
-        # Devolver solo el fragmento solicitado
-        headers = {
-            'Content-Range': f"bytes {range_start}-{range_end}/{file_size}",
-            'Accept-Ranges': 'bytes',
-            'Content-Length': str(range_end - range_start + 1),
-        }
-        return StreamingResponse(chunk_generator, media_type=mime_type, headers=headers, status_code=206)
-
-    # Si no se solicita un rango, devolvemos todo el archivo
     return StreamingResponse(file_data, media_type=mime_type)
+
+
 
 
 def parse_range_header(range_header, file_size):
