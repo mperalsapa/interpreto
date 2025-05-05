@@ -306,8 +306,18 @@ async def get_job(job_id: str):
     transcription = queued_job.get("transcription", [])
     last_transcription = int(transcription[-1]["seg"]) if transcription else 0
     last_transcription_sent = 0  # Variable para controlar el último segmento enviado
+    transcription_state = {
+        "transcription" : transcription,
+        "last_transcription" : last_transcription,
+        "last_transcription_sent" : last_transcription_sent
+    }
 
-    async def event_stream(queued_job = None, transcription = []):
+    async def event_stream(queued_job = None, transcription_state = {}):
+        transcription = transcription_state["transcription"]
+        last_transcription = transcription_state["last_transcription"]
+        last_transcription_sent = transcription_state["last_transcription_sent"]
+
+
         try:
             if not queued_job:
                 yield "data: No job queued\n\n"
@@ -323,7 +333,8 @@ async def get_job(job_id: str):
             while True:
                 message = await pubsub.get_message(ignore_subscribe_messages=True)
                 if not message:
-                    print(f"No message, waiting. Last transcription sent was {last_transcription_sent}.")
+                    if last_transcription_sent:
+                        print(f"No message, waiting. Last transcription sent was {last_transcription_sent}.")
                     await asyncio.sleep(1)  # Espera si no hay nuevos mensajes
                     continue
                 data = message['data'].decode()
@@ -332,6 +343,8 @@ async def get_job(job_id: str):
                 try:
                     # Intentamos cargar el JSON desde el mensaje
                     data = json.loads(data)
+                    if data.get("state") == "closed":
+                        break
                     seg = int(data.get("seg"))
                     print(f"Processing message. Mesage seg is: {seg}")
                     if seg == last_transcription + 1:
@@ -366,7 +379,7 @@ async def get_job(job_id: str):
                 await pubsub.unsubscribe(queued_job["object_etag"])
             await pubsub.close()
     
-    return StreamingResponse(event_stream(queued_job, transcription), media_type="text/event-stream") 
+    return StreamingResponse(event_stream(queued_job, transcription_state), media_type="text/event-stream") 
 
 @app.get("/media/{job_id}")
 async def get_media_file(job_id: str, request: Request):

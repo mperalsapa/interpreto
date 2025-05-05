@@ -254,7 +254,7 @@ def transcribe_segments(segments, job):
         full_text = "".join([s.text for s in segs])
         print(f"[{get_timestamp(start)} --> {get_timestamp(end)}] ({info.language}) {full_text.strip()}")
         result = {
-            "seg": i,
+            "seg": i+1,
             "start": start,
             "end": end,
             "language": info.language,
@@ -269,7 +269,7 @@ def transcribe_segments(segments, job):
         store_transcription_segment(job, result)
 
     # send closed event
-    r.publish(job["object_etag"], {"state": "closed"})
+    r.publish(job["object_etag"], json.dumps({"state": "closed"}))
     return results
 
 if __name__ == "__main__":
@@ -299,6 +299,7 @@ if __name__ == "__main__":
 
         segments = extract_segments(audio["audio"], speech_timestamps, audio["sr"])
         print(f"[INFO] Extraídos {len(segments)} segmentos de audio")
+        store_transcription(job, [])
         results = transcribe_segments(segments, job)
         print(f"[INFO] Transcripción completa")
         # Save results to mongo
