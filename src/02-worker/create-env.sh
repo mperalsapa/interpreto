@@ -40,6 +40,7 @@ pip install nvidia-cublas-cu12 nvidia-cudnn-cu12==9.*
 
 pip install faster-whisper
 pip install silero-vad
+pip install imageio_ffmpeg
 pip install pydub
 pip install pymongo
 pip install minio

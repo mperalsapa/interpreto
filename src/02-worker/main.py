@@ -1,7 +1,9 @@
+import imageio_ffmpeg
 import json
 import os
 import redis
 import shutil
+import subprocess
 import time
 import torch
 import torchaudio
@@ -140,15 +142,26 @@ def complete_task(job):
         }
     )
 
-def store_file_transcription(job, transcription):
-    file_collection.update_one(
-        {"_id": ObjectId(job["file_id"])},
+def fail_task(job, fail_reason):
+    queue_collection.update_one(
+        {"_id": job["_id"]},
+        {"$set": {
+            "status": "failed",
+            "detailed_status": fail_reason,
+            "completed_at": datetime.now(),
+            "updated_at": datetime.now()}
+        }
+    )
+
+def store_transcription(job, transcription):
+    queue_collection.update_one(
+        {"_id": ObjectId(job["_id"])},
         {"$set": {"transcription": transcription}}
     )
 
-def store_file_transcription_segment(job, transcription_segment):
-    file_collection.update_one(
-        {"_id": ObjectId(job["file_id"])},
+def store_transcription_segment(job, transcription_segment):
+    queue_collection.update_one(
+        {"_id": ObjectId(job["_id"])},
         {"$push": {"transcription": transcription_segment}}
     )
 
@@ -165,7 +178,7 @@ def download_file_from_minio(filename, temp_dir):
     return mp3_path
 
 # ========= PREPARE AUDIO =========
-def prepare_audio(filename, temp_dir):
+def prepare_audio_old(filename, temp_dir):
     wav_path = os.path.join(temp_dir, "converted.wav")
 
     audio = AudioSegment.from_file(filename)
@@ -177,6 +190,33 @@ def prepare_audio(filename, temp_dir):
         waveform = waveform.to("cuda")
     
     return {"audio": audio, "waveform": waveform, "sr": sr}
+
+def prepare_audio(file_path, temp_dir):
+    wav_path = os.path.join(temp_dir, "converted.wav")
+
+    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+
+    command = [
+        ffmpeg_path,
+        "-i", file_path,
+        "-ac", "1",
+        "-ar", "16000",
+        "-y",
+        wav_path
+    ]
+
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Error converting file {file_path} to audio using ffmpeg: {e}")
+    
+    audio_segments = AudioSegment.from_wav(wav_path)
+    
+    waveform, sr = torchaudio.load(wav_path)
+    if use_cuda:
+        waveform = waveform.to("cuda")
+
+    return {"audio": audio_segments, "audio_path": wav_path, "waveform": waveform, "sr": sr}
 
 # ========= VOICE DETECTION =========
 def voice_detection(waveform, sr):
@@ -214,6 +254,7 @@ def transcribe_segments(segments, job):
         full_text = "".join([s.text for s in segs])
         print(f"[{get_timestamp(start)} --> {get_timestamp(end)}] ({info.language}) {full_text.strip()}")
         result = {
+            "seg": i,
             "start": start,
             "end": end,
             "language": info.language,
@@ -223,12 +264,12 @@ def transcribe_segments(segments, job):
         os.remove(seg_path)
 
         # send segment to redis
-        r.publish(job["object_etag"], f"data: {result}")
+        r.publish(job["object_etag"], json.dumps(result))
         # store segment transcription to mongo
-        store_file_transcription_segment(job, result)
+        store_transcription_segment(job, result)
 
     # send closed event
-    r.publish(job["object_etag"], "closed")
+    r.publish(job["object_etag"], {"state": "closed"})
     return results
 
 if __name__ == "__main__":
@@ -244,7 +285,15 @@ if __name__ == "__main__":
         
         temp_dir = mkdtemp()
         file_path = download_file_from_minio(job["object_name"], temp_dir)
-        audio = prepare_audio(file_path, temp_dir)
+        
+        # try to convert file to audio in mono 16khz
+        try:
+            audio = prepare_audio(file_path, temp_dir)
+        except Exception as e:
+            # in case we fail, we mark the job as failed and continue
+            fail_task(job, str(e))
+            continue
+
         speech_timestamps = voice_detection(audio["waveform"], audio["sr"])
         print(f"[INFO] Detectados {len(speech_timestamps)} segmentos con voz")
 
