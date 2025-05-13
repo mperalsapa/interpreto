@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.encoders import jsonable_encoder
 from io import BytesIO
 from minio import Minio
 from pymongo import MongoClient
@@ -154,13 +155,25 @@ async def get_file(file_id: str):
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
+    allowed_fields = ["filename", "content_type", "status", "created_at", "completed_at"]
+    file_info = {field: file[field] for field in allowed_fields if field in file}
+    print(file_info)
+    return JSONResponse(status_code=200, content=jsonable_encoder(file_info)) # using jsonable_encoder to ensure proper timestamp serialization
+
+
+
+@app.get("/api/file/{file_id}/transcription/stream")
+async def get_file(file_id: str):
+    file = files_collection.find_one({"_id": ObjectId(file_id)})
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+
     # Check if the file job is completed
     if file["status"] == "completed":
         async def event_stream():
             for i, seg in enumerate(file["transcription"]):
                 response = {"state": "transcribed_segment", "message": seg}
                 yield f"data: {json.dumps(response)}\n\n"
-                await asyncio.sleep(0.01)
         return StreamingResponse(event_stream(), media_type="text/event-stream")
     
     
@@ -246,6 +259,18 @@ async def get_file(file_id: str):
             await pubsub.close()
     
     return StreamingResponse(event_stream(file, transcription_state), media_type="text/event-stream") 
+
+@app.get("/api/file/{file_id}/transcription")
+async def get_file_transcription(file_id: str):
+    file = files_collection.find_one({"_id": ObjectId(file_id)})
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Check if the file job is completed
+    if file["status"] == "completed":
+        return JSONResponse(status_code=200, content=jsonable_encoder(file["transcription"]))
+    
+    return JSONResponse(status_code=200, content={"state": "waiting", "message": "Transcription is still in progress."})
 
 @app.get("/media/{file_id}")
 async def get_media_file(file_id: str, request: Request):
