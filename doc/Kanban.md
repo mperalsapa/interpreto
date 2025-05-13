@@ -9,15 +9,13 @@ kanban-plugin: board
 - [ ] Streaming
 - [ ] Detecció de llenguatge
 - [ ] Traducció
-- [ ] Conversió de text amb marques de temps a subtítol
 - [ ] [[Crear infografia tipus treball de batxillerat]]
 - [ ] [[Cercar maneres de traduïr]]
+- [ ] Visualització dels fitxers processats
 
 
 ## DOING
 
-- [ ] [[Pujat de fitxer multimedia]]
-- [ ] Visualització dels fitxers processats
 
 
 ## DONE
@@ -31,6 +29,8 @@ kanban-plugin: board
 - [ ] [[Processat de fitxers en cua]]
 - [ ] [[Provar faster-whisper]]
 - [ ] [[Creacio de sistema de cua]]
+- [ ] [[Pujat de fitxer multimedia]]
+- [ ] Conversió de text amb marques de temps a subtítol
 
 
 
