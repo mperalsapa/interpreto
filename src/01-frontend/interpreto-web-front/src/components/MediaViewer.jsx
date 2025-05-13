@@ -1,12 +1,13 @@
 // src/components/MediaViewer.jsx
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 
-export default function MediaViewer({ fileUrl, transcription, generateVTTCallback }) {
+export default function MediaViewer({ fileUrl, transcription, generateVTTCallback, fileType = "video" }) {
     const [vttUrl, setVttUrl] = useState(null);
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volumeLevel, setVolumeLevel] = useState(1);
+    const [OverlayText, setOverlayText] = useState("");
     const videoRef = useRef(null);
 
     useEffect(() => {
@@ -72,17 +73,6 @@ export default function MediaViewer({ fileUrl, transcription, generateVTTCallbac
         }
     })
 
-    const toggleFullscreen = useCallback(() => {
-        const video = videoRef.current;
-        if (video) {
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                video.requestFullscreen();
-            }
-        }
-    }, []);
-
     const formatTime = (seconds) => {
         const hrs = Math.floor(seconds / 3600).toString().padStart(2, "0");
         const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
@@ -90,12 +80,40 @@ export default function MediaViewer({ fileUrl, transcription, generateVTTCallbac
         return `${hrs}:${mins}:${secs}`;
     }
 
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (!video.textTracks || !video.textTracks.length) return;
+
+        const track = video.textTracks[0];
+        const handleCueChange = () => {
+            const cue = track.activeCues[0];
+            setOverlayText(cue ? cue.text : "");
+        };
+
+        track.oncuechange = handleCueChange;
+
+        return () => {
+            track.oncuechange = null;
+        };
+    }, [vttUrl]);
+
+
+
+
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <video onClick={togglePlay} ref={videoRef} className="w-full rounded-t-lg bg-gray-900">
-                <source src={fileUrl} />
-                {vttUrl && <track src={vttUrl} kind="subtitles" default />}
-            </video>
+            <div className="relative">
+                {OverlayText && (
+                    <div className={`absolute bottom-0 w-full flex justify-center items-center ${fileType != "video" ? "top-0" : "pb-8"}`}>
+                        <p className="max-w-9/10 w-fit h-fit text-xl text-center bg-black py-1 px-2">{OverlayText}</p>
+                    </div>
+                )}
+                <video onClick={togglePlay} ref={videoRef} className="w-full rounded-t-lg bg-gray-900">
+                    <source src={fileUrl} />
+                    {vttUrl && <track src={vttUrl} kind="metadata" default />}
+                </video>
+            </div>
             <div className="bg-gray-900 rounded-b-lg px-5 py-4">
                 <input onChange={(e) => seek(e.target.value, true)} className="w-full" type="range" min="0" max={duration} value={currentTime} />
                 <div className="w-full flex justify-between items-center">
@@ -110,7 +128,6 @@ export default function MediaViewer({ fileUrl, transcription, generateVTTCallbac
                             <button onClick={() => { volumeLevel > 0 ? volume(0) : volume(0.5) }} className="size-[24px]"><span className="material-symbols-outlined inline-icon" id="volume-icon">{volumeLevel > 0 ? "volume_up" : "volume_off"}</span></button>
                             <input onChange={(e) => { volume(e.target.value) }} type="range" min="0" max="1" step="0.01" value={volumeLevel} />
                         </div>
-                        <button onClick={toggleFullscreen} className="size-[24px]"><span className="material-symbols-outlined inline-icon">fullscreen</span></button>
                     </div>
                 </div>
             </div>
