@@ -227,7 +227,7 @@ def voice_detection(waveform, sr):
         threshold=0.5,
         min_speech_duration_ms=300,
         max_speech_duration_s=30,
-        min_silence_duration_ms=1500,
+        min_silence_duration_ms=200,
         speech_pad_ms=100
     )
     return speech_timestamps
@@ -311,7 +311,7 @@ if __name__ == "__main__":
         print(f"[INFO] Tarea completada")
         shutil.rmtree(temp_dir, ignore_errors=True)
         print("[DEBUG] Job: ", job)
-        print("[DEBUG] Results: ", results)
+        # print("[DEBUG] Results: ", results)
 
 
 
