@@ -7,7 +7,6 @@ const baseUrl = import.meta.env.VITE_BASE_URL;
 
 export default function UploadPage() {
     const [file, setFile] = useState(null);
-    const [jobId, setJobId] = useState(null);
     const [fileUrl, setFileUrl] = useState(null);
     const [contentType, setContentType] = useState("");
     const [uploading, setUploading] = useState(false);
@@ -41,8 +40,7 @@ export default function UploadPage() {
                 if (xhr.status === 200) {
                     const data = JSON.parse(xhr.responseText);
                     if (data.state === "existing" || data.state === "uploaded") {
-                        setJobId(data.job_id);
-                        navigate(`/job/${data.job_id}`);
+                        navigate(`/file/${data.file_id}`);
                     }
                 } else {
                     const data = JSON.parse(xhr.responseText);
@@ -88,8 +86,8 @@ export default function UploadPage() {
                     onClick={handleUpload}
                     disabled={!file || uploading}
                     className={`w-full py-2 px-4 text-white font-semibold rounded-md ${uploading || !file
-                            ? "bg-gray-400 cursor-not-allowed dark:bg-gray-600"
-                            : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                        ? "bg-gray-400 cursor-not-allowed dark:bg-gray-600"
+                        : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                         }`}
                 >
                     {uploading ? "Subiendo..." : "Enviar"}

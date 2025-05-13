@@ -30,20 +30,15 @@ MONGO_PORT = int(os.environ.get("MONGO_PORT", 27017))
 MONGO_USER = os.environ.get("MONGO_USER", "frontend-service")
 MONGO_PASS = os.environ.get("MONGO_PASS", "frontend-service")
 MONGO_DB   = os.environ.get("MONGO_DB", "media_service")
-MONGO_QUEUE_COLLECTION = os.environ.get("MONGO_QUEUE_COLLECTION", "queue")
 MONGO_FILE_COLLECTION = os.environ.get("MONGO_FILE_COLLECTION", "file")
 
 mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
 
 try:
     mongo_client = MongoClient(mongo_uri)
-    mongo_db = mongo_client[MONGO_DB]
-    files_collection = mongo_db["file"]
-    queue_collection = mongo_db["queue"]
     print(f"Succesfully connected to MongoDB: {MONGO_HOST}:{MONGO_PORT}")
-    queue_collection = mongo_client[MONGO_DB][MONGO_QUEUE_COLLECTION]
-    file_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
-    print(f"Succesfully obtained collections: {MONGO_QUEUE_COLLECTION} and {MONGO_FILE_COLLECTION}")
+    files_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
+    print(f"Succesfully obtained collection: {MONGO_FILE_COLLECTION}")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     exit(1)
@@ -119,22 +114,20 @@ def write_wav(segment, path):
     segment.export(path, format="wav")
 
 # ========= GET TASK =========
-def get_task():
-
-    job = queue_collection.find_one_and_update(
+def get_pending_file():
+    file = files_collection.find_one_and_update(
         {"status": "waiting"},
         {"$set": {"status": "processing"}},
-        sort=[("_id", 1)]  # Opcional: garantiza orden FIFO si usas MongoDB
-    )
-
-    if not job:
+        sort=[("_id", 1)])
+    
+    if not file:
         return None
 
-    return job
+    return file
 
-def complete_task(job):
-    queue_collection.update_one(
-        {"_id": job["_id"]},
+def complete_file(file):
+    files_collection.update_one(
+        {"_id": ObjectId(file["_id"])},
         {"$set": {
             "status": "completed",
             "completed_at": datetime.now(),
@@ -142,9 +135,9 @@ def complete_task(job):
         }
     )
 
-def fail_task(job, fail_reason):
-    queue_collection.update_one(
-        {"_id": job["_id"]},
+def fail_file(file, fail_reason):
+    files_collection.update_one(
+        {"_id": ObjectId(file["_id"])},
         {"$set": {
             "status": "failed",
             "detailed_status": fail_reason,
@@ -153,15 +146,15 @@ def fail_task(job, fail_reason):
         }
     )
 
-def store_transcription(job, transcription):
-    queue_collection.update_one(
-        {"_id": ObjectId(job["_id"])},
+def store_transcription(file, transcription):
+    files_collection.update_one(
+        {"_id": ObjectId(file["_id"])},
         {"$set": {"transcription": transcription}}
     )
 
-def store_transcription_segment(job, transcription_segment):
-    queue_collection.update_one(
-        {"_id": ObjectId(job["_id"])},
+def store_transcription_segment(file, transcription_segment):
+    files_collection.update_one(
+        {"_id": ObjectId(file["_id"])},
         {"$push": {"transcription": transcription_segment}}
     )
 
@@ -275,23 +268,23 @@ def transcribe_segments(segments, job):
 if __name__ == "__main__":
     while True:
         # Get job, if none, wait 1 seconds and try again
-        job = get_task()
-        if not job:
+        file = get_pending_file()
+        if not file:
             time.sleep(1)
             continue
-        print(job)
-        print(f"[INFO] Processing job for file: {job["object_name"]} (etag: {job['object_etag']})")
+        print(file)
+        print(f"[INFO] Processing job for file: {file["object_name"]} (etag: {file['object_etag']})")
 
         
         temp_dir = mkdtemp()
-        file_path = download_file_from_minio(job["object_name"], temp_dir)
+        file_path = download_file_from_minio(file["object_name"], temp_dir)
         
         # try to convert file to audio in mono 16khz
         try:
             audio = prepare_audio(file_path, temp_dir)
         except Exception as e:
             # in case we fail, we mark the job as failed and continue
-            fail_task(job, str(e))
+            fail_file(file, str(e))
             continue
 
         speech_timestamps = voice_detection(audio["waveform"], audio["sr"])
@@ -299,18 +292,18 @@ if __name__ == "__main__":
 
         segments = extract_segments(audio["audio"], speech_timestamps, audio["sr"])
         print(f"[INFO] Extraídos {len(segments)} segmentos de audio")
-        store_transcription(job, [])
-        results = transcribe_segments(segments, job)
+        store_transcription(file, [])
+        results = transcribe_segments(segments, file)
         print(f"[INFO] Transcripción completa")
         # Save results to mongo
         # find existing file and set results
         # in "transcription" field
 
-        complete_task(job)
+        complete_file(file)
         # store_file_transcription(job, results)
         print(f"[INFO] Tarea completada")
         shutil.rmtree(temp_dir, ignore_errors=True)
-        print("[DEBUG] Job: ", job)
+        print("[DEBUG] Job: ", file)
         # print("[DEBUG] Results: ", results)
 
 

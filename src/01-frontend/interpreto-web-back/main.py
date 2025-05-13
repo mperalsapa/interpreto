@@ -24,15 +24,15 @@ MONGO_PORT = int(os.environ.get("MONGO_PORT", 27017))
 MONGO_USER = os.environ.get("MONGO_USER", "frontend-service")
 MONGO_PASS = os.environ.get("MONGO_PASS", "frontend-service")
 MONGO_DB   = os.environ.get("MONGO_DB", "media_service")
+MONGO_FILE_COLLECTION = os.environ.get("MONGO_FILE_COLLECTION", "file")
 
 mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
 
 try:
     mongo_client = MongoClient(mongo_uri)
-    mongo_db = mongo_client[MONGO_DB]
-    files_collection = mongo_db["file"]
-    queue_collection = mongo_db["queue"]
     print(f"Succesfully connected to MongoDB: {MONGO_HOST}:{MONGO_PORT}")
+    files_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
+    print(f"Succesfully obtained collection: {MONGO_FILE_COLLECTION}")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     exit(1)
@@ -106,28 +106,12 @@ def store_file_mongo(file, object_result, file_hash):
         "object_name": object_result.object_name,
         "object_etag": object_result.etag,
         "hash": file_hash,
-        "uploaded_at": datetime.utcnow()
-    })
-    
-    return inserted_file
-
-def store_queue_mongo(inserted_file, object_response):
-    queued_job = queue_collection.insert_one({
-        "file_id": str(inserted_file.inserted_id),
         "status": "waiting",
-        "object_name": object_response.object_name,
-        "object_etag": object_response.etag,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
     })
-
-    return queued_job
-
-def get_job_queue_state(job_id):
-    job = queue_collection.find_one({
-        "_id": ObjectId(job_id["_id"])
-    })
-    return job
+    
+    return inserted_file
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
@@ -142,9 +126,7 @@ async def upload_file(file: UploadFile = File(...)):
         # Check if file already exists in mongo by filehash
         existing_file = files_collection.find_one({"hash": content_hash})
         if existing_file:
-            job = queue_collection.find_one({"file_id": str(existing_file["_id"])})
-            if job:
-                return JSONResponse(status_code=200, content={"state": "existing", "job_id": str(job["_id"])})
+            return JSONResponse(status_code=200, content={"state": "existing", "file_id": str(existing_file["_id"])})
 
         # If not exists, generate filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -158,9 +140,7 @@ async def upload_file(file: UploadFile = File(...)):
         # Store file in MongoDB
         inserted_file = store_file_mongo(file, stored_object, content_hash)
 
-        # Store file in MongoDB queue
-        inserted_job = store_queue_mongo(inserted_file, stored_object)
-        return JSONResponse(status_code=200, content={"state": "uploaded", "job_id": str(inserted_job.inserted_id)})
+        return JSONResponse(status_code=200, content={"state": "uploaded", "file_id": str(inserted_file.inserted_id)})
 
     except Exception as e:
         error_message = str(e)
@@ -168,142 +148,28 @@ async def upload_file(file: UploadFile = File(...)):
     finally:
         await file.close()
 
+@app.get("/api/file/{file_id}")
+async def get_file(file_id: str):
+    file = files_collection.find_one({"_id": ObjectId(file_id)})
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
 
-@app.post("/api/upload_old")
-async def upload_file_old(file: UploadFile = File(...)):
-    try:
-        # Check if given file has a audio/* o video/* content type
-        if not file.content_type.startswith("audio/") and not file.content_type.startswith("video/"):
-            async def duplicate_stream():
-                response = {"state": "error", "message": "Given file was not an audio neither a video file."}
-                yield f"data: {json.dumps(response)}\n\n"
-            return StreamingResponse(duplicate_stream(), media_type="text/event-stream")
-            
-        contents = await file.read()
-        content_hash = hashlib.sha256(contents).hexdigest()
-
-        # Check if file already exists in mongo by filehash
-        existing_file = files_collection.find_one({"hash": content_hash})
-        if files_collection is not None and existing_file:
-            job = queue_collection.find_one({"file_id": str(existing_file["_id"])})
-            async def duplicate_stream():
-                if not job:
-                    yield f"data: no job found\n\n"
-                    return
-                for i, seg in enumerate(job["transcription"]):
-                    response = {"state": "transcribed_segment", "message": seg}
-                    yield f"data: {json.dumps(response)}\n\n"
-                    await asyncio.sleep(0.01)
-                # response = {"state": "error", "message": "El archivo ya existe, no se sube de nuevo"}
-                # yield f"data: {json.dumps(response)}\n\n"
-            return StreamingResponse(duplicate_stream(), media_type="text/event-stream")
-        
-        # If not exists, generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_extension = os.path.splitext(file.filename)[1]
-        object_name = f"{timestamp}{file_extension}"
-        file_stream = io.BytesIO(contents)
-
-        # Store file in MinIO
-        stored_object = store_file_minio(file_stream, object_name, file.content_type)
-
-        # Store file in MongoDB
-        inserted_file = store_file_mongo(file, stored_object, content_hash)
-
-        # Store file in MongoDB queue
-        queued_job = store_queue_mongo(inserted_file, stored_object)
-
-        # Response to client using SSE
+    # Check if the file job is completed
+    if file["status"] == "completed":
         async def event_stream():
-            # Subscribe to redis for realtime response
-            pubsub = r.pubsub()
-            await pubsub.subscribe(stored_object.etag)
-
-            # Force timeout in case of no response
-            timeout_seconds = 60  # Adjusted timeout to 60 seconds
-            deadline = datetime.utcnow() + timedelta(seconds=timeout_seconds)
-            closed = False
-
-            # Notify frontend
-            response = {"state": "starting"}
-            yield f"data: {json.dumps(response)}\n\n"
-
-            try:
-                while datetime.utcnow() < deadline and not closed:
-                    message = await pubsub.get_message(ignore_subscribe_messages=True)  # Gets message from redis (client) pubsub buffer
-                    if not message:  # If there is no message, wait 1 sec and try again
-                        await asyncio.sleep(1)
-                        continue
-
-                    # If it's "closed", we stop waiting for more responses
-                    data = message['data'].decode()
-                    if data.strip().lower() == "closed":
-                        closed = True
-                        break
-
-                    response = {"state": "transcribed_segment", "message": data}
-                    yield f"data: {json.dumps(response)}\n\n"
-
-                    # If we have a message, we reset the timeout
-                    deadline = datetime.utcnow() + timedelta(seconds=timeout_seconds)
-
-                # If job is still in queue after timeout
-                if not closed:
-                    job = get_job_queue_state(queued_job)
-                    match job["status"]:
-                        case "waiting":
-                            message = f"Job for file {inserted_file['filename']} is in queue. Check in a few minutes."
-                        case "completed":
-                            message = f"Job for file {inserted_file['filename']} is running slow, check in a few minutes."
-                        case "failed":
-                            message = f"Job for file {inserted_file['filename']} failed."
-                    
-                    response = {"state": "timeout", "message": message}
-                    yield f"data: {json.dumps(response)}\n\n"
-
-            finally:
-                # Unsubscribe from redis, so we don't get more messages
-                await pubsub.unsubscribe(stored_object.etag)
-                await pubsub.close()
-
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-    except Exception as e:
-        error_message = str(e)
-        async def error_stream():
-            response = {"state": "error", "message": f"Error processing file: {error_message}"}
-            print(error_message)
-            yield f"data: {json.dumps(response)}\n\n"
-        return StreamingResponse(error_stream(), media_type="text/event-stream")
-
-    finally:
-        await file.close()
-
-@app.get("/api/job/{job_id}")
-async def get_job(job_id: str):
-    queued_job = queue_collection.find_one({
-        "_id": ObjectId(job_id)
-    })
-
-    if not queued_job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    # Check if the job is completed
-    if queued_job["status"] == "completed":
-        async def event_stream():
-            for i, seg in enumerate(queued_job["transcription"]):
+            for i, seg in enumerate(file["transcription"]):
                 response = {"state": "transcribed_segment", "message": seg}
                 yield f"data: {json.dumps(response)}\n\n"
                 await asyncio.sleep(0.01)
         return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-
+    
+    
 
     pubsub = r.pubsub()
-    await pubsub.subscribe(queued_job["object_etag"])
+    await pubsub.subscribe(file["object_etag"])
 
     # Obtención de la transcripción actual
-    transcription = queued_job.get("transcription", [])
+    transcription = file.get("transcription", [])
     last_transcription = int(transcription[-1]["seg"]) if transcription else 0
     last_transcription_sent = 0  # Variable para controlar el último segmento enviado
     transcription_state = {
@@ -312,15 +178,15 @@ async def get_job(job_id: str):
         "last_transcription_sent" : last_transcription_sent
     }
 
-    async def event_stream(queued_job = None, transcription_state = {}):
+    async def event_stream(file = None, transcription_state = {}):
         transcription = transcription_state["transcription"]
         last_transcription = transcription_state["last_transcription"]
         last_transcription_sent = transcription_state["last_transcription_sent"]
 
 
         try:
-            if not queued_job:
-                yield "data: No job queued\n\n"
+            if not file:
+                yield "data: No file queued\n\n"
                 return
             
             for i, t in enumerate(transcription):
@@ -355,8 +221,8 @@ async def get_job(job_id: str):
                         yield f"data: {json.dumps({'state': 'transcribed_segment', 'message': data})}\n\n"
                     else:
                         # Si hay un gap en la secuencia, actualizamos la transcripción desde Mongo
-                        queued_job = queue_collection.find_one({"_id": ObjectId(job_id)})
-                        transcription = queued_job["transcription"]
+                        file = files_collection.find_one({"_id": ObjectId(file_id)})
+                        transcription = file["transcription"]
                         last_transcription = int(transcription[-1]["seg"]) if transcription else 0
 
                         # Volver a intentar enviar los mensajes faltantes
@@ -375,23 +241,15 @@ async def get_job(job_id: str):
                     print(e)
                     continue
         finally:            
-            if queued_job:
-                await pubsub.unsubscribe(queued_job["object_etag"])
+            if file:
+                await pubsub.unsubscribe(file["object_etag"])
             await pubsub.close()
     
-    return StreamingResponse(event_stream(queued_job, transcription_state), media_type="text/event-stream") 
+    return StreamingResponse(event_stream(file, transcription_state), media_type="text/event-stream") 
 
-@app.get("/media/{job_id}")
-async def get_media_file(job_id: str, request: Request):
-    # 1. Buscar el trabajo en la base de datos
-    job = queue_collection.find_one({"_id": ObjectId(job_id)})
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+@app.get("/media/{file_id}")
+async def get_media_file(file_id: str, request: Request):
 
-    # 2. Obtener el etag del objeto en MinIO
-    file_id = job.get("file_id")
-    if not file_id:
-        raise HTTPException(status_code=404, detail="Object ETag not found in job")
 
     # 3. Buscar archivo en la colección de archivos para obtener filename y mime
     file_doc = files_collection.find_one({"_id": ObjectId(file_id)})

@@ -7,15 +7,15 @@ import MediaViewer from "./MediaViewer";
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
 function JobPage() {
-    const { job_id } = useParams();
+    const { file_id } = useParams();
     const [transcription, setTranscription] = useState([]);
     const [visibleTranscription, setVisibleTranscription] = useState(false);
     const [transcriptionFormat, setTranscriptionFormat] = useState("webvtt");
 
-    const fileUrl = `${baseUrl}/media/${job_id}`;
+    const fileUrl = `${baseUrl}/media/${file_id}`;
 
     useEffect(() => {
-        const es = new EventSource(`${baseUrl}/api/job/${job_id}`);
+        const es = new EventSource(`${baseUrl}/api/file/${file_id}`);
 
         es.onmessage = (e) => {
             try {
@@ -35,7 +35,7 @@ function JobPage() {
         return () => {
             es.close();
         };
-    }, [job_id]);
+    }, [file_id]);
 
     const generateSRT = (transcription) => {
         let srt = "";
@@ -91,7 +91,7 @@ function JobPage() {
             <Navbar />
             <div className="p-4 text-gray-900 dark:text-gray-100 min-h-screen ">
                 <div className="w-full md:w-3/4 xl:w-1/2 mx-auto">
-                    <h1 className="text-xl font-bold mb-4">Trabajo {job_id}</h1>
+                    <h1 className="text-xl font-bold mb-4">Trabajo {file_id}</h1>
                     {fileUrl && (
                         <MediaViewer
                             fileUrl={fileUrl}

@@ -8,7 +8,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<UploadPage />} />
-        <Route path="/job/:job_id" element={<JobPage />} />
+        <Route path="/file/:file_id" element={<JobPage />} />
       </Routes>
     </Router>
   );
