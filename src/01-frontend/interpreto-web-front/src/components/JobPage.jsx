@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "./Navbar";
-
 import MediaViewer from "./MediaViewer";
+import { useLanguage } from "../i18n/LanguageContext";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
 function JobPage() {
     const { file_id } = useParams();
     const [transcription, setTranscription] = useState([]);
-    const [visibleTranscription, setVisibleTranscription] = useState(false);
     const [transcriptionFormat, setTranscriptionFormat] = useState("webvtt");
     const [fileDetails, setFileDetails] = useState(null);
+    const { t } = useLanguage();
+
 
     const fileUrl = `${baseUrl}/media/${file_id}`;
 
@@ -151,7 +152,7 @@ function JobPage() {
                             />
 
                             {transcription && (<div className="mt-4 h-[42px] flex">
-                                <label htmlFor="format" className=" h-full p-2 pl-3 border border-gray-300 dark:border-gray-700 rounded-lg rounded-r-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 ">Format</label>
+                                <label htmlFor="format" className=" h-full p-2 pl-3 border border-gray-300 dark:border-gray-700 rounded-lg rounded-r-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 ">{t("format")}</label>
                                 <select
                                     id="format"
                                     onChange={handleTranscriptionFormatChange}
@@ -159,11 +160,11 @@ function JobPage() {
                                 >
                                     <option value="webvtt">WebVTT</option>
                                     <option value="srt">SRT</option>
-                                    <option value="txt">Raw text</option>
+                                    <option value="txt">{t("raw_text")}</option>
                                 </select>
 
                                 <button onClick={downloadTranscription} className="h-full p-2 w-full ml-5 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                    Download
+                                    {t("download")}
                                 </button>
                             </div>)}
                         </div>

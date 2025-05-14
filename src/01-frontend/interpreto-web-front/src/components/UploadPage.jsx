@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import MediaViewer from "./MediaViewer";
+import { useLanguage } from "../i18n/LanguageContext";
 import Navbar from "./Navbar";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
 export default function UploadPage() {
     const [file, setFile] = useState(null);
-    const [fileUrl, setFileUrl] = useState(null);
-    const [contentType, setContentType] = useState("");
     const [uploading, setUploading] = useState(false);
     const [uploadPercent, setUploadPercent] = useState(0); // New state for upload percentage
     const navigate = useNavigate();
+    const { t } = useLanguage();
 
     const handleUpload = async () => {
         if (!file) return;
@@ -19,10 +18,6 @@ export default function UploadPage() {
         formData.append("file", file);
         setUploading(true);
         setUploadPercent(0); // Reset upload percentage
-
-        // Mostrar el fichero localmente mientras se sube
-        setFileUrl(URL.createObjectURL(file));
-        setContentType(file.type);
 
         try {
             const xhr = new XMLHttpRequest();
@@ -66,43 +61,12 @@ export default function UploadPage() {
         }
     };
 
-
-    const testUpload = async () => {
-        // this function is for ui testing purposes only, does not upload nothing
-        // loop from 1 to 100% in 10 seconds
-        setUploading(true);
-        for (let i = 0; i <= 100; i++) {
-            setTimeout(() => {
-                setUploadPercent(i);
-            }, i * 100);
-        }
-
-        setTimeout(() => {
-            // setUploading(false);
-            setUploadPercent(50);
-        }, 10001);
-    }
-
-    const handleTestUpload = (e) => {
-        const value = e.target.value;
-
-        if (value == 0 || value == 100) {
-            setUploading(false)
-        } else {
-            setUploading(true)
-            setUploadPercent(value);
-        }
-
-    }
-
     return (
         <div className="min-w-screen min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col justify-center">
             <Navbar />
-
-
             <div className="p-6 max-w-lg mx-auto my-auto bg-white shadow-md rounded-md dark:bg-gray-800 dark:shadow-lg s">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-4 dark:text-gray-100">
-                    Upload a video or audio file
+                    {t("upload_audio_or_video")}
                 </h2>
                 <input
                     type="file"
@@ -120,13 +84,11 @@ export default function UploadPage() {
                         : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                         }`}
                 >
-                    {uploading ? "Subiendo..." : "Enviar"}
+                    {uploading ? t("sending") : t("send")}
                 </button>
                 {uploading && (
                     <div className="mt-8">
-                        {/* <input className="w-full" type="range" min="0" max="0" step="0.1" value={uploadPercent} /> */}
                         <div class="progress-bar w-full h-[10px] bg-gray-100 dark:bg-gray-900">
-
                             <span style={{ width: uploadPercent + "%" }} className="h-full block bg-blue-600 dark:bg-blue-500 relative">
                                 <span className="block absolute right-[-1rem] bottom-[-100%] px-1 text-center content-center aspect-square w-[2rem] rounded-xl bg-orange-400">{Math.trunc(uploadPercent)}</span>
                                 <span className="block absolute right-[-2rem] bottom-[-75%] dark:text-white text-lg">%</span>
@@ -134,8 +96,6 @@ export default function UploadPage() {
                         </div>
                     </div>
                 )}
-
-                {/* <input onChange={handleTestUpload} class="w-full mt-5" type="range" name="" id="" min="0" max="100" step="0.1" /> */}
             </div>
         </div>
     );

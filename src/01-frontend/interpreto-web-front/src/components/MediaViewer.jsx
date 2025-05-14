@@ -1,5 +1,5 @@
 // src/components/MediaViewer.jsx
-import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 
 export default function MediaViewer({ fileUrl, transcription, generateVTTCallback, contentType = "video" }) {
     const [vttUrl, setVttUrl] = useState(null);
@@ -97,9 +97,6 @@ export default function MediaViewer({ fileUrl, transcription, generateVTTCallbac
             track.oncuechange = null;
         };
     }, [vttUrl]);
-
-
-
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
