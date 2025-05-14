@@ -137,7 +137,7 @@ function JobPage() {
                             fileUrl={fileUrl}
                             transcription={transcription}
                             generateVTTCallback={generateVTT}
-                            fileType={fileDetails?.content_type.startsWith("video/") ? "video" : "audio"}
+                            contentType={fileDetails?.content_type.startsWith("video/") ? "video" : "audio"}
                         />
                     )}
                     {fileDetails && (

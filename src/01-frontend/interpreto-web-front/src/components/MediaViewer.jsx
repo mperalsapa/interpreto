@@ -1,7 +1,7 @@
 // src/components/MediaViewer.jsx
 import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 
-export default function MediaViewer({ fileUrl, transcription, generateVTTCallback, fileType = "video" }) {
+export default function MediaViewer({ fileUrl, transcription, generateVTTCallback, contentType = "video" }) {
     const [vttUrl, setVttUrl] = useState(null);
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -105,7 +105,7 @@ export default function MediaViewer({ fileUrl, transcription, generateVTTCallbac
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
             <div className="relative">
                 {OverlayText && (
-                    <div className={`absolute bottom-0 w-full flex justify-center items-center ${fileType != "video" ? "top-0" : "pb-8"}`}>
+                    <div className={`absolute bottom-0 w-full flex justify-center items-center ${contentType != "video" ? "top-0" : "pb-8"}`}>
                         <p className="max-w-9/10 w-fit h-fit text-xl text-center bg-black py-1 px-2">{OverlayText}</p>
                     </div>
                 )}

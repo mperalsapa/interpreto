@@ -66,13 +66,43 @@ export default function UploadPage() {
         }
     };
 
+
+    const testUpload = async () => {
+        // this function is for ui testing purposes only, does not upload nothing
+        // loop from 1 to 100% in 10 seconds
+        setUploading(true);
+        for (let i = 0; i <= 100; i++) {
+            setTimeout(() => {
+                setUploadPercent(i);
+            }, i * 100);
+        }
+
+        setTimeout(() => {
+            // setUploading(false);
+            setUploadPercent(50);
+        }, 10001);
+    }
+
+    const handleTestUpload = (e) => {
+        const value = e.target.value;
+
+        if (value == 0 || value == 100) {
+            setUploading(false)
+        } else {
+            setUploading(true)
+            setUploadPercent(value);
+        }
+
+    }
+
     return (
-        <div>
+        <div className="min-w-screen min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col justify-center">
             <Navbar />
 
-            <div className="p-6 max-w-lg mx-auto bg-white shadow-md rounded-md dark:bg-gray-800 dark:shadow-lg">
+
+            <div className="p-6 max-w-lg mx-auto my-auto bg-white shadow-md rounded-md dark:bg-gray-800 dark:shadow-lg s">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-4 dark:text-gray-100">
-                    Sube un archivo de audio o video
+                    Upload a video or audio file
                 </h2>
                 <input
                     type="file"
@@ -93,22 +123,19 @@ export default function UploadPage() {
                     {uploading ? "Subiendo..." : "Enviar"}
                 </button>
                 {uploading && (
-                    <div className="mt-4">
-                        <progress
-                            className="w-full dark:bg-gray-700"
-                            value={uploadPercent}
-                            max="100"
-                        />
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                            {uploadPercent}% subido
-                        </p>
+                    <div className="mt-8">
+                        {/* <input className="w-full" type="range" min="0" max="0" step="0.1" value={uploadPercent} /> */}
+                        <div class="progress-bar w-full h-[10px] bg-gray-100 dark:bg-gray-900">
+
+                            <span style={{ width: uploadPercent + "%" }} className="h-full block bg-blue-600 dark:bg-blue-500 relative">
+                                <span className="block absolute right-[-1rem] bottom-[-100%] px-1 text-center content-center aspect-square w-[2rem] rounded-xl bg-orange-400">{Math.trunc(uploadPercent)}</span>
+                                <span className="block absolute right-[-2rem] bottom-[-75%] dark:text-white text-lg">%</span>
+                            </span>
+                        </div>
                     </div>
                 )}
-                {fileUrl && (
-                    <div className="mt-6">
-                        <MediaViewer fileUrl={fileUrl} contentType={contentType} />
-                    </div>
-                )}
+
+                {/* <input onChange={handleTestUpload} class="w-full mt-5" type="range" name="" id="" min="0" max="100" step="0.1" /> */}
             </div>
         </div>
     );
