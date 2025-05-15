@@ -19,66 +19,91 @@ from pymongo import MongoClient
 
 app = FastAPI()
 
-# MongoDB Config
-MONGO_HOST = os.environ.get("MONGO_HOST", "192.168.1.10")
-MONGO_PORT = int(os.environ.get("MONGO_PORT", 27017))
-MONGO_USER = os.environ.get("MONGO_USER", "frontend-service")
-MONGO_PASS = os.environ.get("MONGO_PASS", "frontend-service")
-MONGO_DB   = os.environ.get("MONGO_DB", "media_service")
-MONGO_FILE_COLLECTION = os.environ.get("MONGO_FILE_COLLECTION", "file")
+# Global variables
+MONGO_CLIENT = None
+FILES_COLLECTION = None
+MINIO_CLIENT = None
+REDIS_CLIENT = None
+MINIO_BUCKET_NAME = None
 
-mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
+@app.on_event("startup")
+def startup_event():
+    global MONGO_CLIENT, FILES_COLLECTION, MINIO_CLIENT, REDIS_CLIENT, MINIO_BUCKET_NAME
 
-try:
-    mongo_client = MongoClient(mongo_uri)
-    print(f"Succesfully connected to MongoDB: {MONGO_HOST}:{MONGO_PORT}")
-    files_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
-    print(f"Succesfully obtained collection: {MONGO_FILE_COLLECTION}")
-except Exception as e:
-    print(f"Error connecting to MongoDB: {e}")
-    exit(1)
+    # MongoDB Config
+    try:
+        MONGO_HOST = os.environ.get("MONGO_HOST", "192.168.1.10")
+        MONGO_PORT = int(os.environ.get("MONGO_PORT", 27017))
+        MONGO_USER = os.environ.get("MONGO_USER", "frontend-service")
+        MONGO_PASS = os.environ.get("MONGO_PASS", "frontend-service")
+        MONGO_DB   = os.environ.get("MONGO_DB", "media_service")
+        MONGO_FILE_COLLECTION = os.environ.get("MONGO_FILE_COLLECTION", "file")
+
+        mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
+
+        MONGO_CLIENT = MongoClient(mongo_uri)
+        print(f"Succesfully connected to MongoDB: {MONGO_HOST}:{MONGO_PORT}")
+        FILES_COLLECTION = MONGO_CLIENT[MONGO_DB][MONGO_FILE_COLLECTION]
+        print(f"Succesfully obtained collection: {MONGO_FILE_COLLECTION}")
+    except Exception as e:
+        print(f"Error connecting to MongoDB: {e}")
+        exit(1)
 
 
-# MinIO Config
-MINIO_HOST = os.environ.get("MINIO_HOST", "localhost")
-MINIO_PORT = int(os.environ.get("MINIO_PORT", "9000"))
-MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
-MINIO_SECURE = os.environ.get("MINIO_SECURE", "False").lower().capitalize() == "True"
-MINIO_BUCKET_NAME = "media-files"
+    # MinIO Config
+    try:
+        MINIO_HOST = os.environ.get("MINIO_HOST", "localhost")
+        MINIO_PORT = int(os.environ.get("MINIO_PORT", "9000"))
+        MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
+        MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
+        MINIO_SECURE = os.environ.get("MINIO_SECURE", "False").lower().capitalize() == "True"
+        MINIO_BUCKET_NAME = "media-files"
 
-try:
-    minio_client = Minio(
-        f"{MINIO_HOST}:{MINIO_PORT}",
-        access_key=MINIO_ACCESS_KEY,
-        secret_key=MINIO_SECRET_KEY,
-        secure=MINIO_SECURE
-    )
-    print(f"Succesfully connected to MinIO: {MINIO_HOST}:{MINIO_PORT}")
-except Exception as e:
-    print(f"Error connecting to MinIO: {e}")
-    exit(1)
+        MINIO_CLIENT = Minio(
+            f"{MINIO_HOST}:{MINIO_PORT}",
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=MINIO_SECURE
+        )
+        print(f"Succesfully connected to MinIO: {MINIO_HOST}:{MINIO_PORT}")
+    except Exception as e:
+        print(f"Error connecting to MinIO: {e}")
+        exit(1)
 
-# Redis config
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-try:
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
-    print(f"Succesfully connected to Redis: {REDIS_HOST}:{REDIS_PORT}")
-except Exception as e:
-    print(f"Error connecting to Redis: {e}")
-    exit(1)
+    # Redis config
+    try:
+        REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+        REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+        
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
+        print(f"Succesfully connected to Redis: {REDIS_HOST}:{REDIS_PORT}")
+    except Exception as e:
+        print(f"Error connecting to Redis: {e}")
+        exit(1)
 
-# Making sure MinIO bucket exists
-try:
-    if not minio_client.bucket_exists(MINIO_BUCKET_NAME):
-        print(f"Creating MinIO bucket: {MINIO_BUCKET_NAME}")
-        minio_client.make_bucket(MINIO_BUCKET_NAME)
-    else:
-        print(f"Using existing MinIO bucket: {MINIO_BUCKET_NAME}")
-except Exception as e:
-    print(f"Error creating MinIO bucket: {e}")
-    exit(1)
+    # Making sure MinIO bucket exists
+    try:
+        if not MINIO_CLIENT.bucket_exists(MINIO_BUCKET_NAME):
+            print(f"Creating MinIO bucket: {MINIO_BUCKET_NAME}")
+            MINIO_CLIENT.make_bucket(MINIO_BUCKET_NAME)
+        else:
+            print(f"Using existing MinIO bucket: {MINIO_BUCKET_NAME}")
+    except Exception as e:
+        print(f"Error creating MinIO bucket: {e}")
+        exit(1)
+
+    # Store in app state
+    app.state.MONGO_CLIENT = MONGO_CLIENT
+    app.state.FILES_COLLECTION = FILES_COLLECTION
+    app.state.MINIO_CLIENT = MINIO_CLIENT
+    app.state.REDIS_CLIENT = REDIS_CLIENT
+    app.state.minio_bucket = MINIO_BUCKET_NAME
+
+@app.on_event("shutdown")
+def shutdown_event():
+    if MONGO_CLIENT:
+        MONGO_CLIENT.close()
+        print("🔌 MongoDB connection closed.")
 
 # Middleware CORS
 # TODO: Change this to a more secure way
@@ -90,7 +115,7 @@ app.add_middleware(
 )
 
 def store_file_minio(file, object_name, content_type):
-    stored_object = minio_client.put_object(
+    stored_object = MINIO_CLIENT.put_object(
             MINIO_BUCKET_NAME,
             object_name,
             file,
@@ -101,7 +126,7 @@ def store_file_minio(file, object_name, content_type):
     return stored_object
 
 def store_file_mongo(file, object_result, file_hash):
-    inserted_file = files_collection.insert_one({
+    inserted_file = FILES_COLLECTION.insert_one({
         "filename": file.filename,
         "content_type": file.content_type,
         "object_name": object_result.object_name,
@@ -125,7 +150,7 @@ async def upload_file(file: UploadFile = File(...)):
         content_hash = hashlib.sha256(contents).hexdigest()
 
         # Check if file already exists in mongo by filehash
-        existing_file = files_collection.find_one({"hash": content_hash})
+        existing_file = FILES_COLLECTION.find_one({"hash": content_hash})
         if existing_file:
             return JSONResponse(status_code=200, content={"state": "existing", "file_id": str(existing_file["_id"])})
 
@@ -151,7 +176,7 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.get("/api/file/{file_id}")
 async def get_file(file_id: str):
-    file = files_collection.find_one({"_id": ObjectId(file_id)})
+    file = FILES_COLLECTION.find_one({"_id": ObjectId(file_id)})
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -164,7 +189,7 @@ async def get_file(file_id: str):
 
 @app.get("/api/file/{file_id}/transcription/stream")
 async def get_file(file_id: str):
-    file = files_collection.find_one({"_id": ObjectId(file_id)})
+    file = FILES_COLLECTION.find_one({"_id": ObjectId(file_id)})
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -176,15 +201,13 @@ async def get_file(file_id: str):
                 yield f"data: {json.dumps(response)}\n\n"
         return StreamingResponse(event_stream(), media_type="text/event-stream")
     
-    
-
     pubsub = r.pubsub()
     await pubsub.subscribe(file["object_etag"])
 
-    # Obtención de la transcripción actual
+    # get the last transcription segment
     transcription = file.get("transcription", [])
     last_transcription = int(transcription[-1]["seg"]) if transcription else 0
-    last_transcription_sent = 0  # Variable para controlar el último segmento enviado
+    last_transcription_sent = 0  # Variable to keep track of the last sent transcription segment
     transcription_state = {
         "transcription" : transcription,
         "last_transcription" : last_transcription,
@@ -195,7 +218,6 @@ async def get_file(file_id: str):
         transcription = transcription_state["transcription"]
         last_transcription = transcription_state["last_transcription"]
         last_transcription_sent = transcription_state["last_transcription_sent"]
-
 
         try:
             if not file:
@@ -208,19 +230,19 @@ async def get_file(file_id: str):
                 yield f"data: {json.dumps(response)}\n\n"
                 last_transcription_sent = i
 
-            # Bucle que escuchará los mensajes de Redis
+            # Loop that will listen to Redis messages
             while True:
                 message = await pubsub.get_message(ignore_subscribe_messages=True)
                 if not message:
                     if last_transcription_sent:
                         print(f"No message, waiting. Last transcription sent was {last_transcription_sent}.")
-                    await asyncio.sleep(1)  # Espera si no hay nuevos mensajes
+                    await asyncio.sleep(1)  # wait for a second before checking again
                     continue
                 data = message['data'].decode()
                 print(f"New message: {data}")
 
                 try:
-                    # Intentamos cargar el JSON desde el mensaje
+                    # Tries to load the JSON from the message
                     data = json.loads(data)
                     if data.get("state") == "closed":
                         break
@@ -228,29 +250,29 @@ async def get_file(file_id: str):
                     print(f"Processing message. Mesage seg is: {seg}")
                     if seg == last_transcription + 1:
                         print("New message is the following to the last message")
-                        # Si el segmento recibido es el siguiente en la secuencia
+                        # if the segment is the next in the sequence
                         transcription.append(data)
                         last_transcription += 1
                         yield f"data: {json.dumps({'state': 'transcribed_segment', 'message': data})}\n\n"
                     else:
-                        # Si hay un gap en la secuencia, actualizamos la transcripción desde Mongo
-                        file = files_collection.find_one({"_id": ObjectId(file_id)})
+                        # If the segment is not the next in the sequence, we need to get the last transcription from Mongo
+                        file = FILES_COLLECTION.find_one({"_id": ObjectId(file_id)})
                         transcription = file["transcription"]
                         last_transcription = int(transcription[-1]["seg"]) if transcription else 0
 
-                        # Volver a intentar enviar los mensajes faltantes
+                        # Try to send the missing messages
                         for item in transcription:
                             if item["seg"] > last_transcription_sent:
                                 yield f"data: {json.dumps({'state': 'transcribed_segment', 'seg': item['seg'], 'text': item['text']})}\n\n"
                                 last_transcription_sent = item["seg"]
-                        # Continuar con el nuevo mensaje
+                        # Continue with the new message
                         if seg == last_transcription + 1:
                             transcription.append(data)
                             last_transcription += 1
                             yield f"data: {json.dumps({'state': 'transcribed_segment', 'seg': seg, 'text': data['text']})}\n\n"
 
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    # Si el mensaje no es válido, ignorarlo
+                    # Ignore invalid messages
                     print(e)
                     continue
         finally:            
@@ -262,7 +284,7 @@ async def get_file(file_id: str):
 
 @app.get("/api/file/{file_id}/transcription")
 async def get_file_transcription(file_id: str):
-    file = files_collection.find_one({"_id": ObjectId(file_id)})
+    file = FILES_COLLECTION.find_one({"_id": ObjectId(file_id)})
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -274,30 +296,28 @@ async def get_file_transcription(file_id: str):
 
 @app.get("/media/{file_id}")
 async def get_media_file(file_id: str, request: Request):
-
-
-    # 3. Buscar archivo en la colección de archivos para obtener filename y mime
-    file_doc = files_collection.find_one({"_id": ObjectId(file_id)})
+    # Search for file in MongoDB
+    file_doc = FILES_COLLECTION.find_one({"_id": ObjectId(file_id)})
     if not file_doc:
         raise HTTPException(status_code=404, detail="File not found for this ETag")
 
     object_name = file_doc["object_name"]
     mime_type = file_doc.get("content_type") or mimetypes.guess_type(object_name)[0] or "application/octet-stream"
 
-    # 4. Obtener encabezado Range (si existe)
+    # Get the Range header from the request
     range_header = request.headers.get('Range')
 
-    # 5. Obtener tamaño completo del archivo
-    stat = minio_client.stat_object("media-files", object_name)
+    # Get the file size from MinIO
+    stat = MINIO_CLIENT.stat_object("media-files", object_name)
     file_size = stat.size
 
     if range_header:
-        # 6. Parsear rango
+        # Parse the range header to get the start and end bytes
         range_start, range_end = parse_range_header(range_header, file_size)
 
-        # 7. Obtener solo el fragmento necesario desde MinIO
+        # Obtain the file range from MinIO
         try:
-            partial_file_data = minio_client.get_object(
+            partial_file_data = MINIO_CLIENT.get_object(
                 "media-files",
                 object_name,
                 offset=range_start,
@@ -314,36 +334,31 @@ async def get_media_file(file_id: str, request: Request):
 
         return StreamingResponse(partial_file_data, media_type=mime_type, headers=headers, status_code=206)
 
-    # 8. Si no se especificó un rango, devolver el archivo completo
+    # Get the full file from MinIO
     try:
-        file_data = minio_client.get_object("media-files", object_name)
+        file_data = MINIO_CLIENT.get_object("media-files", object_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve full file: {str(e)}")
 
     return StreamingResponse(file_data, media_type=mime_type)
 
-
-
-
 def parse_range_header(range_header, file_size):
-    # El encabezado de rango puede tener el formato 'bytes=start-end'
+    # The range header can have the format 'bytes=start-end'
     range_values = range_header.replace('bytes=', '').split('-')
     range_start = int(range_values[0])
     range_end = int(range_values[1]) if range_values[1] else file_size - 1
 
-    # Validar que el rango sea válido
+    # Validate that the range is valid
     if range_start >= file_size or range_end >= file_size:
         raise HTTPException(status_code=416, detail="Requested Range Not Satisfiable")
 
     return range_start, range_end
 
-
 def chunked_file(file_data, range_start, range_end, chunk_size=1024*1024):
-    """Genera los fragmentos del archivo en partes (chunks)"""
-    # Creamos un buffer que lea en el rango deseado
+    # We create a buffer that reads in the desired range
     bytes_read = 0
     while bytes_read < range_end - range_start + 1:
-        # Lee el siguiente chunk (mínimo entre el tamaño del chunk y el resto del rango)
+        # Reads the next chunk (minimum between the chunk size and the rest of the range)
         chunk = file_data.read(min(chunk_size, range_end - range_start + 1 - bytes_read))
         if not chunk:
             break
@@ -351,28 +366,29 @@ def chunked_file(file_data, range_start, range_end, chunk_size=1024*1024):
         bytes_read += len(chunk)
 
 # Absolute path to frontend build directory
-frontend_dist_path = os.path.join(os.path.dirname(__file__), "./front-dist")
-frontend_dist_path = os.path.abspath(frontend_dist_path)
+frontend_dist_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "front-dist")
+)
 
-# Mount static files
-# app.mount("/", StaticFiles(directory=frontend_dist_path, html=True), name="frontend")
-# 2) Montamos sólo los archivos estáticos (los de assets) en /static
+# Mount static files for assets
 app.mount(
     "/assets",
     StaticFiles(directory=os.path.join(frontend_dist_path, "assets")),
     name="assets"
 )
 
-# 4) Ruta para la raíz “/” — devuelve index.html
+# / route, returns intex.html
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return HTMLResponse(open(os.path.join(frontend_dist_path, "index.html"), "r").read())
 
-# 5) Catch-all para cualquier otra ruta no API: devuelve también index.html
+# Catch-all for any other non api route
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 async def catch_all(full_path: str):
-    return HTMLResponse(open(os.path.join(frontend_dist_path, "index.html"), "r").read())
-
+    file_path = os.path.join(frontend_dist_path, full_path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse(os.path.join(frontend_dist_path, "index.html"))
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)

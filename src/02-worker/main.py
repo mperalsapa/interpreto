@@ -17,11 +17,12 @@ from pymongo import MongoClient
 from tempfile import mkdtemp
 
 # ========= CONFIG =========
-use_cuda = torch.cuda.is_available()
+# Global variables
+USE_CUDA = torch.cuda.is_available()
 
 # Whisper
-model_size = "turbo"
-compute_type = "float32"
+MODEL_SIZE = "turbo"
+COMPUTE_TYPE = "float32"
 
 # Mongo
 # MongoDB Config
@@ -32,12 +33,12 @@ MONGO_PASS = os.environ.get("MONGO_PASS", "frontend-service")
 MONGO_DB   = os.environ.get("MONGO_DB", "media_service")
 MONGO_FILE_COLLECTION = os.environ.get("MONGO_FILE_COLLECTION", "file")
 
-mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
+MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
 
 try:
-    mongo_client = MongoClient(mongo_uri)
+    MONGO_CLIENT = MongoClient(MONGO_URI)
     print(f"Succesfully connected to MongoDB: {MONGO_HOST}:{MONGO_PORT}")
-    files_collection = mongo_client[MONGO_DB][MONGO_FILE_COLLECTION]
+    FILES_COLLECTION = MONGO_CLIENT[MONGO_DB][MONGO_FILE_COLLECTION]
     print(f"Succesfully obtained collection: {MONGO_FILE_COLLECTION}")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
@@ -52,7 +53,7 @@ MINIO_SECURE = os.environ.get("MINIO_SECURE", "False").lower().capitalize() == "
 MINIO_BUCKET_NAME = "media-files"
 
 try:
-    minio_client = Minio(
+    MINIO_CLIENT = Minio(
         f"{MINIO_HOST}:{MINIO_PORT}",
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
@@ -64,7 +65,7 @@ except Exception as e:
     exit(1)
 
 print("Connecting to minio...")
-minio_client = Minio(
+MINIO_CLIENT = Minio(
     "localhost:9000",
     access_key="minioadmin",
     secret_key="minioadmin",
@@ -85,25 +86,25 @@ except Exception as e:
 print("Loading models...")
 
 print("Loading whisper model...")
-model = WhisperModel(
-    model_size,
-    device="cuda" if use_cuda else "cpu",
-    compute_type=compute_type
+MODEL = WhisperModel(
+    MODEL_SIZE,
+    device="cuda" if USE_CUDA else "cpu",
+    compute_type=COMPUTE_TYPE
 )
 
 print("Loading silero-vad model...")
-vad = torch.hub.load(
+VAD = torch.hub.load(
     repo_or_dir='snakers4/silero-vad',
     model='silero_vad',
     force_reload=False
 )
 
-vad_model = vad[0].to("cuda" if use_cuda else "cpu")
+VAD_MODEL = VAD[0].to("cuda" if USE_CUDA else "cpu")
 (get_speech_timestamps,
  save_audio,
  read_audio,
  VADIterator,
- collect_chunks) = vad[1]
+ collect_chunks) = VAD[1]
 
 # ========= FUNCTIONS =========
 def get_timestamp(seconds):
@@ -115,7 +116,7 @@ def write_wav(segment, path):
 
 # ========= GET TASK =========
 def get_pending_file():
-    file = files_collection.find_one_and_update(
+    file = FILES_COLLECTION.find_one_and_update(
         {"status": "waiting"},
         {"$set": {"status": "processing"}},
         sort=[("_id", 1)])
@@ -126,7 +127,7 @@ def get_pending_file():
     return file
 
 def complete_file(file):
-    files_collection.update_one(
+    FILES_COLLECTION.update_one(
         {"_id": ObjectId(file["_id"])},
         {"$set": {
             "status": "completed",
@@ -136,7 +137,7 @@ def complete_file(file):
     )
 
 def fail_file(file, fail_reason):
-    files_collection.update_one(
+    FILES_COLLECTION.update_one(
         {"_id": ObjectId(file["_id"])},
         {"$set": {
             "status": "failed",
@@ -147,13 +148,13 @@ def fail_file(file, fail_reason):
     )
 
 def store_transcription(file, transcription):
-    files_collection.update_one(
+    FILES_COLLECTION.update_one(
         {"_id": ObjectId(file["_id"])},
         {"$set": {"transcription": transcription}}
     )
 
 def store_transcription_segment(file, transcription_segment):
-    files_collection.update_one(
+    FILES_COLLECTION.update_one(
         {"_id": ObjectId(file["_id"])},
         {"$push": {"transcription": transcription_segment}}
     )
@@ -162,7 +163,7 @@ def store_transcription_segment(file, transcription_segment):
 def download_file_from_minio(filename, temp_dir):
     mp3_path = os.path.join(temp_dir, filename)
 
-    minio_client.fget_object(
+    MINIO_CLIENT.fget_object(
         MINIO_BUCKET_NAME,
         filename,
         mp3_path
@@ -179,7 +180,7 @@ def prepare_audio_old(filename, temp_dir):
     audio.export(wav_path, format="wav")
 
     waveform, sr = torchaudio.load(wav_path)
-    if use_cuda:
+    if USE_CUDA:
         waveform = waveform.to("cuda")
     
     return {"audio": audio, "waveform": waveform, "sr": sr}
@@ -206,7 +207,7 @@ def prepare_audio(file_path, temp_dir):
     audio_segments = AudioSegment.from_wav(wav_path)
     
     waveform, sr = torchaudio.load(wav_path)
-    if use_cuda:
+    if USE_CUDA:
         waveform = waveform.to("cuda")
 
     return {"audio": audio_segments, "audio_path": wav_path, "waveform": waveform, "sr": sr}
@@ -215,7 +216,7 @@ def prepare_audio(file_path, temp_dir):
 def voice_detection(waveform, sr):
     speech_timestamps = get_speech_timestamps(
         waveform,
-        vad_model,
+        VAD_MODEL,
         sampling_rate=sr,
         threshold=0.5,
         min_speech_duration_ms=300,
@@ -243,7 +244,7 @@ def extract_segments(audio, speech_timestamps, sr):
 def transcribe_segments(segments, job):
     results = []
     for i, (seg_path, start, end) in enumerate(segments):
-        segs, info = model.transcribe(seg_path, beam_size=5)
+        segs, info = MODEL.transcribe(seg_path, beam_size=5)
         full_text = "".join([s.text for s in segs])
         print(f"[{get_timestamp(start)} --> {get_timestamp(end)}] ({info.language}) {full_text.strip()}")
         result = {
@@ -305,6 +306,3 @@ if __name__ == "__main__":
         shutil.rmtree(temp_dir, ignore_errors=True)
         print("[DEBUG] Job: ", file)
         # print("[DEBUG] Results: ", results)
-
-
-
