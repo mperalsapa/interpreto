@@ -64,14 +64,14 @@ export default function UploadPage() {
   return (
     <div className="flex min-h-screen min-w-screen flex-col justify-center bg-gray-100 dark:bg-gray-900">
       <Navbar />
-      <div className="s mx-auto my-auto max-w-lg rounded-md bg-white p-6 shadow-md dark:bg-gray-800 dark:shadow-lg">
+      <div className="mx-auto my-auto w-100 rounded-md bg-white p-6 shadow-md dark:bg-gray-800 dark:shadow-lg">
         <h2 className="mb-4 text-2xl font-semibold text-gray-800 dark:text-gray-100">
           {t("upload_audio_or_video")}
         </h2>
         <input
           type="file"
           accept="audio/*,video/*"
-          className="mb-4 block w-full text-sm text-gray-600 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 dark:text-gray-300 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600"
+          className={`${uploading ? "hidden" : ""} mb-4 block w-full text-sm text-gray-600 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 dark:text-gray-300 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600`}
           onChange={(e) => {
             setFile(e.target.files[0]);
           }}
@@ -85,7 +85,7 @@ export default function UploadPage() {
               : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           }`}
         >
-          {uploading ? t("sending") : t("send")}
+          {uploading ? t("uploading") : t("upload")}
         </button>
         {uploading && (
           <div className="mt-8">
@@ -102,6 +102,11 @@ export default function UploadPage() {
                 </span>
               </span>
             </div>
+            {uploadPercent == 100 && (
+              <p className="mt-5 dark:text-gray-100">
+                {t("upload_complete_wait_a_moment")}
+              </p>
+            )}
           </div>
         )}
       </div>

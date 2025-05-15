@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "./Navbar";
 import MediaViewer from "./MediaViewer";
@@ -12,7 +12,7 @@ function JobPage() {
   const [transcriptionFormat, setTranscriptionFormat] = useState("webvtt");
   const [fileDetails, setFileDetails] = useState(null);
   const [currentSegment, setCurrentSegment] = useState(null);
-  const [interactiveViewer, setInteractiveViewer] = useState(false);
+  const [interactiveViewer, setInteractiveViewer] = useState(true);
   const { t } = useLanguage();
 
   const fileUrl = `${baseUrl}/media/${file_id}`;
@@ -203,12 +203,12 @@ function JobPage() {
                   readOnly
                   value={getTranscriptionFormatted(transcription)}
                   rows={10}
-                  className="h-80 w-full rounded-lg border border-gray-300 bg-gray-50 p-3 font-mono text-gray-900 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  className="h-80 w-full resize-none overflow-y-hidden rounded-lg border border-none bg-gray-100 p-2 font-mono text-gray-900 hover:overflow-y-auto dark:bg-gray-700 dark:text-gray-100"
                 />
               )}
               {interactiveViewer && (
                 <div
-                  className="relative h-80 overflow-y-hidden rounded border border-none bg-gray-100 p-2 hover:overflow-y-auto dark:bg-gray-700"
+                  className="relative h-80 w-full overflow-y-hidden rounded-lg border border-none bg-gray-100 p-2 hover:overflow-y-auto dark:bg-gray-700"
                   id="transcription-container"
                 >
                   {transcription.map((segment, i) => (
@@ -228,20 +228,20 @@ function JobPage() {
               )}
 
               {transcription && (
-                <div className="mt-4 flex h-[42px] gap-5">
+                <div className="mt-4 flex h-[42px] gap-5 text-gray-900 dark:text-gray-100">
                   <button
                     onClick={() => setInteractiveViewer(!interactiveViewer)}
-                    className="h-full w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-gray-900 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                    className="h-full w-full rounded-lg border border-gray-300 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-700"
                   >
                     {!interactiveViewer
                       ? t("set_interactive_viewer")
                       : t("set_raw_viewer")}
                   </button>
-                  <div className="grid grid-cols-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100">
+                  <div className="grid grid-cols-2 rounded-lg border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-700">
                     <select
                       id="format"
                       onChange={handleTranscriptionFormatChange}
-                      className="dark:br-none h-full bg-gray-50 p-2 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                      className="dark:br-none h-full rounded-lg p-2 dark:bg-gray-700"
                     >
                       <option value="webvtt">WebVTT</option>
                       <option value="srt">SRT</option>
@@ -249,7 +249,7 @@ function JobPage() {
                     </select>
                     <button
                       onClick={downloadTranscription}
-                      className="h-full w-full bg-gray-50 p-2 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                      className="h-full w-full p-2"
                     >
                       {t("download")}
                     </button>
