@@ -180,85 +180,81 @@ function JobPage() {
   return (
     <div>
       <Navbar />
-      <div className="min-h-screen p-4 text-gray-900 dark:text-gray-100">
-        <div className="mx-auto w-full md:w-3/4 xl:w-1/2">
-          {fileUrl && (
-            <MediaViewer
-              fileUrl={fileUrl}
-              transcription={transcription}
-              generateVTTCallback={generateVTT}
-              onCueChange={handleCueChange}
-              contentType={
-                fileDetails?.content_type.startsWith("video/")
-                  ? "video"
-                  : "audio"
-              }
-            />
-          )}
-          {fileDetails && (
-            <div className="my-4 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-              <h1 className="mb-4 text-xl font-bold">{fileDetails.filename}</h1>
-              {!interactiveViewer && (
-                <textarea
-                  readOnly
-                  value={getTranscriptionFormatted(transcription)}
-                  rows={10}
-                  className="h-80 w-full resize-none overflow-y-hidden rounded-lg border border-none bg-gray-100 p-2 font-mono text-gray-900 hover:overflow-y-auto dark:bg-gray-700 dark:text-gray-100"
-                />
-              )}
-              {interactiveViewer && (
-                <div
-                  className="relative h-80 w-full overflow-y-hidden rounded-lg border border-none bg-gray-100 p-2 hover:overflow-y-auto dark:bg-gray-700"
-                  id="transcription-container"
-                >
-                  {transcription.map((segment, i) => (
-                    <button
-                      key={i}
-                      id={`subtitle-${i}`}
-                      className={`${i == currentSegment ? "border border-dashed bg-white dark:bg-gray-800" : "text-gray-900 dark:text-gray-100"} my-1 flex w-full flex-col items-start rounded-lg px-2 py-1 transition-colors duration-300 hover:bg-gray-200 dark:hover:bg-gray-600`}
-                      onClick={() => handleCueClick(i)}
-                    >
-                      <div className="text-sm text-gray-300">
-                        {formatTime(segment.start)} - {formatTime(segment.end)}
-                      </div>
-                      <div className="text-left">{segment.text}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {transcription && (
-                <div className="mt-4 flex h-[42px] gap-5 text-gray-900 dark:text-gray-100">
+      <div className="flex min-h-screen flex-col items-center p-4 text-gray-900 dark:text-gray-100">
+        {fileUrl && (
+          <MediaViewer
+            fileUrl={fileUrl}
+            transcription={transcription}
+            generateVTTCallback={generateVTT}
+            onCueChange={handleCueChange}
+            contentType={
+              fileDetails?.content_type.startsWith("video/") ? "video" : "audio"
+            }
+          />
+        )}
+        {fileDetails && (
+          <div className="my-4 w-full rounded-lg bg-white p-6 shadow-lg md:w-5/6 xl:w-1/2 dark:bg-gray-800">
+            <h1 className="mb-4 text-xl font-bold">{fileDetails.filename}</h1>
+            {!interactiveViewer && (
+              <textarea
+                readOnly
+                value={getTranscriptionFormatted(transcription)}
+                rows={10}
+                className="h-80 w-full resize-none overflow-y-hidden rounded-lg border border-none bg-gray-100 p-2 font-mono text-gray-900 hover:overflow-y-auto dark:bg-gray-700 dark:text-gray-100"
+              />
+            )}
+            {interactiveViewer && (
+              <div
+                className="relative h-80 w-full overflow-y-hidden rounded-lg border border-none bg-gray-100 p-2 hover:overflow-y-auto dark:bg-gray-700"
+                id="transcription-container"
+              >
+                {transcription.map((segment, i) => (
                   <button
-                    onClick={() => setInteractiveViewer(!interactiveViewer)}
-                    className="h-full w-full rounded-lg border border-gray-300 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-700"
+                    key={i}
+                    id={`subtitle-${i}`}
+                    className={`${i == currentSegment ? "border border-dashed bg-white dark:bg-gray-800" : "text-gray-900 dark:text-gray-100"} my-1 flex w-full flex-col items-start rounded-lg px-2 py-1 transition-colors duration-300 hover:bg-gray-200 dark:hover:bg-gray-600`}
+                    onClick={() => handleCueClick(i)}
                   >
-                    {!interactiveViewer
-                      ? t("set_interactive_viewer")
-                      : t("set_raw_viewer")}
+                    <div className="text-sm text-gray-300">
+                      {formatTime(segment.start)} - {formatTime(segment.end)}
+                    </div>
+                    <div className="text-left">{segment.text}</div>
                   </button>
-                  <div className="grid grid-cols-2 rounded-lg border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-700">
-                    <select
-                      id="format"
-                      onChange={handleTranscriptionFormatChange}
-                      className="dark:br-none h-full rounded-lg p-2 dark:bg-gray-700"
-                    >
-                      <option value="webvtt">WebVTT</option>
-                      <option value="srt">SRT</option>
-                      <option value="txt">{t("raw_text")}</option>
-                    </select>
-                    <button
-                      onClick={downloadTranscription}
-                      className="h-full w-full p-2"
-                    >
-                      {t("download")}
-                    </button>
-                  </div>
+                ))}
+              </div>
+            )}
+
+            {transcription && (
+              <div className="mt-4 flex h-[42px] gap-5 text-gray-900 dark:text-gray-100">
+                <button
+                  onClick={() => setInteractiveViewer(!interactiveViewer)}
+                  className="h-full w-full rounded-lg border border-gray-300 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-700"
+                >
+                  {!interactiveViewer
+                    ? t("set_interactive_viewer")
+                    : t("set_raw_viewer")}
+                </button>
+                <div className="grid grid-cols-2 rounded-lg border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-700">
+                  <select
+                    id="format"
+                    onChange={handleTranscriptionFormatChange}
+                    className="dark:br-none h-full rounded-lg p-2 dark:bg-gray-700"
+                  >
+                    <option value="webvtt">WebVTT</option>
+                    <option value="srt">SRT</option>
+                    <option value="txt">{t("raw_text")}</option>
+                  </select>
+                  <button
+                    onClick={downloadTranscription}
+                    className="h-full w-full p-2"
+                  >
+                    {t("download")}
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
