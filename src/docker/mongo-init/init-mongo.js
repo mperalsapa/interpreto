@@ -18,9 +18,6 @@ db = db.getSiblingDB("media_service");
 
 // create collections
 db.createCollection("file");
-db.createCollection("queue");
-// db.createCollection("history");
 
 // unique index to avoid duplicates
-db.files.createIndex({ hash: 1 }, { unique: true });
-// db.history.createIndex({ object_name: 1 });
+db.file.createIndex({ hash: 1 }, { unique: true });

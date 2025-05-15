@@ -1,0 +1,29 @@
+version: 40
+jobs:
+  - name: Build and Publish
+    steps:
+      - !CheckoutStep
+        name: Checkout
+        cloneCredential: !DefaultCredential {}
+        withLfs: false
+        withSubmodules: false
+        condition: SUCCESSFUL
+        optional: false
+      - !BuildImageStep
+        name: Build
+        buildPath: src/01-frontend
+        dockerfile: src/01-frontend/Dockerfile
+        output: !RegistryOutput
+          tags: onedev.mperals.work/mapeca/interpreto
+        registryLogins:
+          - registryUrl: "@server_url@"
+            userName: "@job_token@"
+            passwordSecret: registry-access-token
+        condition: SUCCESSFUL
+        optional: false
+    triggers:
+      - !BranchUpdateTrigger {}
+    retryCondition: never
+    maxRetries: 3
+    retryDelay: 30
+    timeout: 3600
