@@ -7,172 +7,261 @@ import { useLanguage } from "../i18n/LanguageContext";
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
 function JobPage() {
-    const { file_id } = useParams();
-    const [transcription, setTranscription] = useState([]);
-    const [transcriptionFormat, setTranscriptionFormat] = useState("webvtt");
-    const [fileDetails, setFileDetails] = useState(null);
-    const { t } = useLanguage();
+  const { file_id } = useParams();
+  const [transcription, setTranscription] = useState([]);
+  const [transcriptionFormat, setTranscriptionFormat] = useState("webvtt");
+  const [fileDetails, setFileDetails] = useState(null);
+  const [currentSegment, setCurrentSegment] = useState(null);
+  const [interactiveViewer, setInteractiveViewer] = useState(false);
+  const { t } = useLanguage();
 
+  const fileUrl = `${baseUrl}/media/${file_id}`;
 
-    const fileUrl = `${baseUrl}/media/${file_id}`;
+  useEffect(() => {
+    fetch(`${baseUrl}/api/file/${file_id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setFileDetails(data);
+      })
+      .catch((err) => {
+        console.error("Error al obtener los detalles del archivo:", err);
+      });
+  }, [file_id]);
 
-    useEffect(() => {
-        fetch(`${baseUrl}/api/file/${file_id}`)
-            .then((res) => res.json())
-            .then((data) => {
-                setFileDetails(data);
-            })
-            .catch((err) => {
-                console.error("Error al obtener los detalles del archivo:", err);
-            });
-    }, [file_id]);
+  useEffect(() => {
+    if (!fileDetails) return;
 
-    useEffect(() => {
-        if (!fileDetails) return;
-
-        if (fileDetails.status === "completed") {
-            // Fetch completed transcription
-            fetch(`${baseUrl}/api/file/${file_id}/transcription`)
-                .then((res) => res.json())
-                .then((data) => {
-                    setTranscription(data);
-                })
-                .catch((err) => {
-                    console.error("Error al obtener la transcripción:", err);
-                });
-        } else {
-            // Fetch WIP transcription over SSE
-            const es = new EventSource(`${baseUrl}/api/file/${file_id}/transcription/stream`);
-
-            es.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.state === "transcribed_segment") {
-                        setTranscription((prev) => [...prev, data.message]);
-                    }
-                } catch (err) {
-                    console.error("Error procesando SSE:", err);
-                }
-            };
-
-            es.onerror = () => {
-                es.close();
-            };
-
-            return () => {
-                es.close();
-            };
-        }
-    }, [fileDetails]);
-
-
-    const generateSRT = (transcription) => {
-        let srt = "";
-        transcription.forEach((segment, i) => {
-            srt += `${i + 1}\n`;
-            srt += `${formatTime(segment.start, ",")} --> ${formatTime(segment.end, ",")}\n`;
-            srt += `${segment.text}\n\n`;
+    if (fileDetails.status === "completed") {
+      // Fetch completed transcription
+      fetch(`${baseUrl}/api/file/${file_id}/transcription`)
+        .then((res) => res.json())
+        .then((data) => {
+          setTranscription(data);
         })
-
-        return srt;
-    }
-
-    const generateVTT = (transcription) => {
-        let vtt = "WEBVTT\n\n";
-        transcription.forEach((segment, i) => {
-            vtt += `${i + 1}\n${formatTime(segment.start)} --> ${formatTime(segment.end)}\n${segment.text}\n\n`;
+        .catch((err) => {
+          console.error("Error al obtener la transcripción:", err);
         });
-        return vtt;
-    };
+    } else {
+      // Fetch WIP transcription over SSE
+      const es = new EventSource(
+        `${baseUrl}/api/file/${file_id}/transcription/stream`,
+      );
 
-    const formatTime = (seconds, decimalSeparator = ".") => {
-        const hrs = Math.floor(seconds / 3600).toString().padStart(2, "0");
-        const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
-        const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
-        const ms = Math.floor((seconds % 1) * 1000).toString().padStart(3, "0");
-        return `${hrs}:${mins}:${secs}${decimalSeparator}${ms}`;
-    };
-
-    const getTranscriptionFormatted = (transcription) => {
-        switch (transcriptionFormat) {
-            case "srt":
-                return generateSRT(transcription);
-            case "webvtt":
-                return generateVTT(transcription);
-            case "txt":
-                return transcription.map((segment) => segment.text).join("\n");
-            default:
-                return generateVTT(transcription);
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.state === "transcribed_segment") {
+            setTranscription((prev) => [...prev, data.message]);
+          }
+        } catch (err) {
+          console.error("Error procesando SSE:", err);
         }
+      };
+
+      es.onerror = () => {
+        es.close();
+      };
+
+      return () => {
+        es.close();
+      };
     }
+  }, [fileDetails]);
 
-    const handleTranscriptionFormatChange = (e) => {
-        setTranscriptionFormat(e.target.value);
+  const generateSRT = (transcription) => {
+    let srt = "";
+    transcription.forEach((segment, i) => {
+      srt += `${i + 1}\n`;
+      srt += `${formatTime(segment.start, ",")} --> ${formatTime(segment.end, ",")}\n`;
+      srt += `${segment.text}\n\n`;
+    });
+
+    return srt;
+  };
+
+  const generateVTT = (transcription) => {
+    let vtt = "WEBVTT\n\n";
+    transcription.forEach((segment, i) => {
+      vtt += `${i + 1}\n${formatTime(segment.start)} --> ${formatTime(segment.end)}\n${segment.text}\n\n`;
+    });
+    return vtt;
+  };
+
+  const formatTime = (seconds, decimalSeparator = ".") => {
+    const hrs = Math.floor(seconds / 3600)
+      .toString()
+      .padStart(2, "0");
+    const mins = Math.floor((seconds % 3600) / 60)
+      .toString()
+      .padStart(2, "0");
+    const secs = Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, "0");
+    const ms = Math.floor((seconds % 1) * 1000)
+      .toString()
+      .padStart(3, "0");
+    return `${hrs}:${mins}:${secs}${decimalSeparator}${ms}`;
+  };
+
+  const getTranscriptionFormatted = (transcription) => {
+    switch (transcriptionFormat) {
+      case "srt":
+        return generateSRT(transcription);
+      case "webvtt":
+        return generateVTT(transcription);
+      case "txt":
+        return transcription.map((segment) => segment.text).join("\n");
+      default:
+        return generateVTT(transcription);
     }
+  };
 
+  const handleTranscriptionFormatChange = (e) => {
+    setTranscriptionFormat(e.target.value);
+  };
 
-    const downloadTranscription = () => {
-        console.log("Downloading transcription in format:", transcriptionFormat);
-
-        const blob = new Blob([getTranscriptionFormatted(transcription)], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = url;
-        a.download = `${fileDetails.filename}_transcription.${transcriptionFormat}`;
-        a.click();
-        URL.revokeObjectURL(url);
-        a.remove();
-
-    }
-
-    return (
-        <div>
-            <Navbar />
-            <div className="p-4 text-gray-900 dark:text-gray-100 min-h-screen ">
-                <div className="w-full md:w-3/4 xl:w-1/2 mx-auto">
-
-                    {fileUrl && (
-                        <MediaViewer
-                            fileUrl={fileUrl}
-                            transcription={transcription}
-                            generateVTTCallback={generateVTT}
-                            contentType={fileDetails?.content_type.startsWith("video/") ? "video" : "audio"}
-                        />
-                    )}
-                    {fileDetails && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg my-4">
-                            <h1 className="text-xl font-bold mb-4">{fileDetails.filename}</h1>
-                            <textarea
-                                readOnly
-                                value={getTranscriptionFormatted(transcription)}
-                                rows={10}
-                                className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono"
-                            />
-
-                            {transcription && (<div className="mt-4 h-[42px] flex">
-                                <label htmlFor="format" className=" h-full p-2 pl-3 border border-gray-300 dark:border-gray-700 rounded-lg rounded-r-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 ">{t("format")}</label>
-                                <select
-                                    id="format"
-                                    onChange={handleTranscriptionFormatChange}
-                                    className="h-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg rounded-l-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                >
-                                    <option value="webvtt">WebVTT</option>
-                                    <option value="srt">SRT</option>
-                                    <option value="txt">{t("raw_text")}</option>
-                                </select>
-
-                                <button onClick={downloadTranscription} className="h-full p-2 w-full ml-5 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                    {t("download")}
-                                </button>
-                            </div>)}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+  const handleCueChange = (cue) => {
+    console.log(
+      `New cue changed: ${cue.text}. Start: ${cue.startTime}, End: ${cue.endTime}`,
     );
+    const index = transcription.findIndex(
+      (segment) => cue.startTime.toFixed(1) === segment.start.toFixed(1),
+    );
+    if (index !== -1 && index !== currentSegment) {
+      setCurrentSegment(index);
+      const el = document.getElementById(`subtitle-${index}`);
+      const container = document.getElementById("transcription-container");
+
+      if (el && container) {
+        // Asegura que el scroll ocurre solo dentro del contenedor
+        const elTop = el.offsetTop;
+        const elHeight = el.offsetHeight;
+        const containerHeight = container.offsetHeight;
+
+        container.scrollTo({
+          top: elTop - containerHeight / 2 + elHeight / 2,
+          behavior: "smooth",
+        });
+      }
+    }
+  };
+
+  const handleCueClick = (index) => {
+    const videos = document.getElementsByTagName("video");
+    if (!videos) return;
+
+    const video = videos[0];
+    if (!video) return;
+
+    const segment = transcription[index];
+    if (!segment) return;
+
+    video.currentTime = segment.start;
+    video.play();
+  };
+
+  const downloadTranscription = () => {
+    console.log("Downloading transcription in format:", transcriptionFormat);
+
+    const blob = new Blob([getTranscriptionFormatted(transcription)], {
+      type: "text/plain",
+    });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = `${fileDetails.filename}_transcription.${transcriptionFormat}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
+  };
+
+  return (
+    <div>
+      <Navbar />
+      <div className="min-h-screen p-4 text-gray-900 dark:text-gray-100">
+        <div className="mx-auto w-full md:w-3/4 xl:w-1/2">
+          {fileUrl && (
+            <MediaViewer
+              fileUrl={fileUrl}
+              transcription={transcription}
+              generateVTTCallback={generateVTT}
+              onCueChange={handleCueChange}
+              contentType={
+                fileDetails?.content_type.startsWith("video/")
+                  ? "video"
+                  : "audio"
+              }
+            />
+          )}
+          {fileDetails && (
+            <div className="my-4 rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
+              <h1 className="mb-4 text-xl font-bold">{fileDetails.filename}</h1>
+              {!interactiveViewer && (
+                <textarea
+                  readOnly
+                  value={getTranscriptionFormatted(transcription)}
+                  rows={10}
+                  className="h-80 w-full rounded-lg border border-gray-300 bg-gray-50 p-3 font-mono text-gray-900 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                />
+              )}
+              {interactiveViewer && (
+                <div
+                  className="relative h-80 overflow-y-hidden rounded border border-none bg-gray-100 p-2 hover:overflow-y-auto dark:bg-gray-700"
+                  id="transcription-container"
+                >
+                  {transcription.map((segment, i) => (
+                    <button
+                      key={i}
+                      id={`subtitle-${i}`}
+                      className={`${i == currentSegment ? "border border-dashed bg-white dark:bg-gray-800" : "text-gray-900 dark:text-gray-100"} my-1 flex w-full flex-col items-start rounded-lg px-2 py-1 transition-colors duration-300 hover:bg-gray-200 dark:hover:bg-gray-600`}
+                      onClick={() => handleCueClick(i)}
+                    >
+                      <div className="text-sm text-gray-300">
+                        {formatTime(segment.start)} - {formatTime(segment.end)}
+                      </div>
+                      <div className="text-left">{segment.text}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {transcription && (
+                <div className="mt-4 flex h-[42px] gap-5">
+                  <button
+                    onClick={() => setInteractiveViewer(!interactiveViewer)}
+                    className="h-full w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-gray-900 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    {!interactiveViewer
+                      ? t("set_interactive_viewer")
+                      : t("set_raw_viewer")}
+                  </button>
+                  <div className="grid grid-cols-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100">
+                    <select
+                      id="format"
+                      onChange={handleTranscriptionFormatChange}
+                      className="dark:br-none h-full bg-gray-50 p-2 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      <option value="webvtt">WebVTT</option>
+                      <option value="srt">SRT</option>
+                      <option value="txt">{t("raw_text")}</option>
+                    </select>
+                    <button
+                      onClick={downloadTranscription}
+                      className="h-full w-full bg-gray-50 p-2 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      {t("download")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default JobPage;
