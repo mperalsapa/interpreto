@@ -122,7 +122,7 @@ export default function MediaViewer({
           <div
             className={`absolute bottom-0 flex w-full items-center justify-center ${contentType != "video" ? "top-0" : "pb-8"}`}
           >
-            <p className="h-fit w-fit max-w-9/10 bg-black px-2 py-1 text-center text-xl">
+            <p className="h-fit w-fit max-w-9/10 bg-black px-2 py-1 text-center text-xl text-white">
               {OverlayText}
             </p>
           </div>
@@ -136,7 +136,7 @@ export default function MediaViewer({
           {vttUrl && <track src={vttUrl} kind="metadata" default />}
         </video>
       </div>
-      <div className="rounded-b-lg bg-gray-900 px-5 py-4">
+      <div className="rounded-b-lg bg-gray-100 px-5 py-4 dark:bg-gray-900">
         <input
           onChange={(e) => seek(e.target.value, true)}
           className="w-full"

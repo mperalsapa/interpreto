@@ -79,10 +79,10 @@ export default function UploadPage() {
         <button
           onClick={handleUpload}
           disabled={!file || uploading}
-          className={`w-full rounded-md px-4 py-2 font-semibold text-white ${
+          className={`w-full rounded-md border-gray-300 bg-gray-50 p-2 text-gray-900 shadow-md dark:border-gray-800 dark:bg-gray-700 dark:text-gray-100 ${
             uploading || !file
               ? "cursor-not-allowed bg-gray-400 dark:bg-gray-600"
-              : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              : "bg-blue-600 hover:bg-blue-700 hover:bg-gray-200 dark:bg-blue-500 dark:hover:bg-blue-600"
           }`}
         >
           {uploading ? t("uploading") : t("upload")}

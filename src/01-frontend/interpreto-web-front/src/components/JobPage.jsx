@@ -228,17 +228,17 @@ function JobPage() {
               <div className="mt-4 flex h-[42px] gap-5 text-gray-900 dark:text-gray-100">
                 <button
                   onClick={() => setInteractiveViewer(!interactiveViewer)}
-                  className="h-full w-full rounded-lg border border-gray-300 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-700"
+                  className="h-full w-2/3 rounded-lg border-gray-300 bg-gray-50 p-2 text-gray-900 shadow-md hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
                 >
                   {!interactiveViewer
                     ? t("set_interactive_viewer")
                     : t("set_raw_viewer")}
                 </button>
-                <div className="grid grid-cols-2 rounded-lg border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-700">
+                <div className="grid w-1/3 grid-cols-2">
                   <select
                     id="format"
                     onChange={handleTranscriptionFormatChange}
-                    className="dark:br-none h-full rounded-lg p-2 dark:bg-gray-700"
+                    className="dark:br-none h-full rounded-lg rounded-r-none border-gray-300 bg-gray-50 p-2 text-gray-900 shadow-md hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
                   >
                     <option value="webvtt">WebVTT</option>
                     <option value="srt">SRT</option>
@@ -246,7 +246,7 @@ function JobPage() {
                   </select>
                   <button
                     onClick={downloadTranscription}
-                    className="h-full w-full p-2"
+                    className="h-full w-full rounded-lg rounded-l-none border-gray-300 bg-gray-50 p-2 text-gray-900 shadow-md hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
                   >
                     {t("download")}
                   </button>
