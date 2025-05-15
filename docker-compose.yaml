@@ -7,7 +7,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./src/docker/mongo-init:/docker-entrypoint-initdb.d  # init-mongo.js
+      - ./src/docker/mongo-init:/docker-entrypoint-initdb.d # init-mongo.js
 
   redis:
     image: redis:7-alpine
@@ -27,3 +27,14 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
+
+  web:
+    image: interpreto-web
+    ports:
+      - "8081:8080"
+    depends_on:
+      - mongo
+      - redis
+      - minio
+    env_file:
+      - .env

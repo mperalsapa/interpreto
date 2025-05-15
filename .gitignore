@@ -9,3 +9,4 @@ output
 references
 dist
 front-dist
+.env
