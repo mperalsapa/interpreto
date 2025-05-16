@@ -64,14 +64,6 @@ except Exception as e:
     print(f"Error connecting to MinIO: {e}")
     exit(1)
 
-print("Connecting to minio...")
-MINIO_CLIENT = Minio(
-    "localhost:9000",
-    access_key="minioadmin",
-    secret_key="minioadmin",
-    secure=False
-)
-
 # Redis config
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
@@ -296,13 +288,7 @@ if __name__ == "__main__":
         store_transcription(file, [])
         results = transcribe_segments(segments, file)
         print(f"[INFO] Transcripción completa")
-        # Save results to mongo
-        # find existing file and set results
-        # in "transcription" field
 
         complete_file(file)
-        # store_file_transcription(job, results)
         print(f"[INFO] Tarea completada")
         shutil.rmtree(temp_dir, ignore_errors=True)
-        print("[DEBUG] Job: ", file)
-        # print("[DEBUG] Results: ", results)
