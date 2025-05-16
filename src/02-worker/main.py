@@ -9,7 +9,8 @@ import torch
 import torchaudio
 from bson import ObjectId
 from datetime import timedelta as td
-from datetime import datetime
+from datetime import datetime as dt
+from datetime import timezone as tz
 from faster_whisper import WhisperModel
 from minio import Minio
 from pydub import AudioSegment
@@ -123,8 +124,8 @@ def complete_file(file):
         {"_id": ObjectId(file["_id"])},
         {"$set": {
             "status": "completed",
-            "completed_at": datetime.now(datetime.timezone.utc),
-            "updated_at": datetime.now(datetime.timezone.utc)}
+            "completed_at": dt.now(tz.utc),
+            "updated_at": dt.now(tz.utc)}
         }
     )
 
@@ -134,8 +135,8 @@ def fail_file(file, fail_reason):
         {"$set": {
             "status": "failed",
             "detailed_status": fail_reason,
-            "completed_at": datetime.now(datetime.timezone.utc),
-            "updated_at": datetime.now(datetime.timezone.utc)}
+            "completed_at": dt.now(tz.utc),
+            "updated_at": dt.now(tz.utc)}
         }
     )
 

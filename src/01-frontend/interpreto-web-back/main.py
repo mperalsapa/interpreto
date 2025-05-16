@@ -7,7 +7,8 @@ import os
 import uvicorn
 import redis.asyncio as redis
 from bson import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime as dt
+from datetime import timezone as tz
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse, JSONResponse
@@ -133,8 +134,8 @@ def store_file_mongo(file, object_result, file_hash):
         "object_etag": object_result.etag,
         "hash": file_hash,
         "status": "waiting",
-        "created_at": datetime.now(datetime.timezone.utc),
-        "updated_at": datetime.now(datetime.timezone.utc),
+        "created_at": dt.now(tz.utc),
+        "updated_at": dt.now(tz.utc),
     })
     
     return inserted_file
@@ -155,8 +156,6 @@ async def upload_file(file: UploadFile = File(...)):
             return JSONResponse(status_code=200, content={"state": "existing", "file_id": str(existing_file["_id"])})
 
         # If not exists, generate filename
-        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # file_extension = os.path.splitext(file.filename)[1]
         object_name = content_hash
         file_stream = io.BytesIO(contents)
 
