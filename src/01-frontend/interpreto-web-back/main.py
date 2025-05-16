@@ -75,7 +75,7 @@ def startup_event():
         REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
         REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
         
-        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
+        REDIS_CLIENT = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
         print(f"Succesfully connected to Redis: {REDIS_HOST}:{REDIS_PORT}")
     except Exception as e:
         print(f"Error connecting to Redis: {e}")
@@ -201,7 +201,7 @@ async def get_file(file_id: str):
                 yield f"data: {json.dumps(response)}\n\n"
         return StreamingResponse(event_stream(), media_type="text/event-stream")
     
-    pubsub = r.pubsub()
+    pubsub = REDIS_CLIENT.pubsub()
     await pubsub.subscribe(file["object_etag"])
 
     # get the last transcription segment
