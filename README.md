@@ -6,8 +6,8 @@ Interpreto is a system for transcribing audio and video files. It provides an ea
 
 ## Interface
 
-![Upload page](doc/attached/upload-page.jpeg)
-![File page](doc/attached/file-page.jpeg)
+![Upload page](doc/attached/upload-page.png)
+![File page](doc/attached/file-page.png)
 
 ## Features
 
