@@ -12,6 +12,9 @@ const translations = {
     set_interactive_viewer: "Show interactive",
     set_raw_viewer: "Show raw",
     upload_complete_wait_a_moment: "Upload complete, wait a moment",
+    not_found_title: "Not found",
+    not_found_message: "Sorry, the page you are looking for does not exist.",
+    go_home: "Go home",
   },
   es: {
     language: "Idioma",
@@ -24,6 +27,9 @@ const translations = {
     set_interactive_viewer: "Mostrar interactivo",
     set_raw_viewer: "Mostrar sin formato",
     upload_complete_wait_a_moment: "Envío completo, espera un momento",
+    not_found_title: "No encontrado",
+    not_found_message: "Lo sentimos, la página que buscas no existe.",
+    go_home: "Ir al inicio",
   },
   ca: {
     language: "Idioma",
@@ -36,6 +42,9 @@ const translations = {
     set_interactive_viewer: "Mostrar interactiu",
     set_raw_viewer: "Mostrar sense format",
     upload_complete_wait_a_moment: "Enviament complet, espera un moment",
+    not_found_title: "No trobat",
+    not_found_message: "Ho sentim, la pàgina que busques no existeix.",
+    go_home: "Anar a l'inici",
   },
 };
 

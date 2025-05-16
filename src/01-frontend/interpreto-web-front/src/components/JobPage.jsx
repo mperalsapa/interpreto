@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import Navbar from "./Navbar";
 import MediaViewer from "./MediaViewer";
 import { useLanguage } from "../i18n/LanguageContext";
+import { useNavigate } from "react-router-dom";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -14,19 +15,27 @@ function JobPage() {
   const [currentSegment, setCurrentSegment] = useState(null);
   const [interactiveViewer, setInteractiveViewer] = useState(true);
   const { t } = useLanguage();
-
-  const fileUrl = `${baseUrl}/media/${file_id}`;
+  const [fileUrl, setFileUrl] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch(`${baseUrl}/api/file/${file_id}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          navigate("/404");
+          return null;
+        } else {
+          return res.json();
+        }
+      })
       .then((data) => {
         setFileDetails(data);
+        setFileUrl(`${baseUrl}/media/${file_id}`);
       })
       .catch((err) => {
         console.error("Error al obtener los detalles del archivo:", err);
       });
-  }, [file_id]);
+  }, [file_id, navigate]);
 
   useEffect(() => {
     if (!fileDetails) return;
