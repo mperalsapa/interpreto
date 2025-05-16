@@ -123,8 +123,8 @@ def complete_file(file):
         {"_id": ObjectId(file["_id"])},
         {"$set": {
             "status": "completed",
-            "completed_at": datetime.now(),
-            "updated_at": datetime.now()}
+            "completed_at": datetime.now(datetime.timezone.utc),
+            "updated_at": datetime.now(datetime.timezone.utc)}
         }
     )
 
@@ -134,8 +134,8 @@ def fail_file(file, fail_reason):
         {"$set": {
             "status": "failed",
             "detailed_status": fail_reason,
-            "completed_at": datetime.now(),
-            "updated_at": datetime.now()}
+            "completed_at": datetime.now(datetime.timezone.utc),
+            "updated_at": datetime.now(datetime.timezone.utc)}
         }
     )
 

@@ -133,8 +133,8 @@ def store_file_mongo(file, object_result, file_hash):
         "object_etag": object_result.etag,
         "hash": file_hash,
         "status": "waiting",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(datetime.timezone.utc),
+        "updated_at": datetime.now(datetime.timezone.utc),
     })
     
     return inserted_file
