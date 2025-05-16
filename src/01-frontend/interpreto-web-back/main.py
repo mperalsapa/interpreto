@@ -155,9 +155,9 @@ async def upload_file(file: UploadFile = File(...)):
             return JSONResponse(status_code=200, content={"state": "existing", "file_id": str(existing_file["_id"])})
 
         # If not exists, generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_extension = os.path.splitext(file.filename)[1]
-        object_name = f"{timestamp}{file_extension}"
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # file_extension = os.path.splitext(file.filename)[1]
+        object_name = content_hash
         file_stream = io.BytesIO(contents)
 
         # Store file in MinIO
@@ -293,6 +293,28 @@ async def get_file_transcription(file_id: str):
         return JSONResponse(status_code=200, content=jsonable_encoder(file["transcription"]))
     
     return JSONResponse(status_code=200, content={"state": "waiting", "message": "Transcription is still in progress."})
+
+@app.get("/api/admin/files")
+async def get_files(request: Request):
+    # check if user is admin, reading bearertoken and checking if matches "sapa2025" in sha1
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = auth_header.split(" ")[1]
+    if token != "fa5ef3f3f833d4a8e756935f4c6ab298f7a738ed":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Get all files from MongoDB
+    files = FILES_COLLECTION.find()
+    files_list = []
+    for file in files:
+        file["_id"] = str(file["_id"])
+        file["created_at"] = file["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+        if "completed_at" in file:
+            file["completed_at"] = file["completed_at"].strftime("%Y-%m-%d %H:%M:%S")
+        files_list.append(file)
+    
+    return JSONResponse(status_code=200, content=jsonable_encoder(files_list))
 
 @app.get("/media/{file_id}")
 async def get_media_file(file_id: str, request: Request):

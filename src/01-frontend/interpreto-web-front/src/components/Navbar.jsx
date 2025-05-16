@@ -1,10 +1,12 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const [darkMode, setDarkMode] = useState(true);
+  const [administrator, setAdministrator] = useState(false);
   const { t } = useLanguage();
 
   const handleLangChange = (e) => {
@@ -14,6 +16,18 @@ export default function Navbar() {
   useEffect(() => {
     const theme = document.documentElement.classList.contains("dark");
     setDarkMode(theme);
+  }, []);
+
+  useEffect(() => {
+    // Check if the user is an administrator
+    // reads the administrator value from localStorage
+    // if administrator value is existent, set administrator to true
+    const admin = localStorage.getItem("administrator-token");
+    if (admin) {
+      setAdministrator(true);
+    } else {
+      setAdministrator(false);
+    }
   }, []);
 
   const handleThemeChange = () => {
@@ -33,6 +47,16 @@ export default function Navbar() {
           Interpreto
         </NavLink>
         <div className="flex gap-5">
+          {administrator && (
+            <button
+              className="material-symbols-outlined inline-icon m-0 aspect-square w-10 rounded-full border border-gray-300 p-0 shadow-md hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600"
+              onClick={() => {
+                navigate("/admin");
+              }}
+            >
+              shield_person
+            </button>
+          )}
           <button
             onClick={handleThemeChange}
             className="material-symbols-outlined inline-icon m-0 aspect-square w-10 rounded-full border border-gray-300 p-0 shadow-md hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600"
