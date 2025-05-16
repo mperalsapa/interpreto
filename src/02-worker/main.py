@@ -111,7 +111,10 @@ def write_wav(segment, path):
 def get_pending_file():
     file = FILES_COLLECTION.find_one_and_update(
         {"status": "waiting"},
-        {"$set": {"status": "processing"}},
+        {"$set": {
+            "status": "processing",
+            "updated_at": dt.now(tz.utc)
+            }},
         sort=[("_id", 1)])
     
     if not file:
@@ -143,13 +146,19 @@ def fail_file(file, fail_reason):
 def store_transcription(file, transcription):
     FILES_COLLECTION.update_one(
         {"_id": ObjectId(file["_id"])},
-        {"$set": {"transcription": transcription}}
+        {"$set": {
+            "transcription": transcription,
+            "updated_at": dt.now(tz.utc)
+            }}
     )
 
 def store_transcription_segment(file, transcription_segment):
     FILES_COLLECTION.update_one(
         {"_id": ObjectId(file["_id"])},
-        {"$push": {"transcription": transcription_segment}}
+        {
+            "$push": {"transcription": transcription_segment}, 
+            "$set": {"updated_at": dt.now(tz.utc)}
+        }
     )
 
 # ========= DOWNLOAD FROM MINIO =========
